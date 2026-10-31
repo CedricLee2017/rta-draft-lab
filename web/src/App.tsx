@@ -102,7 +102,11 @@ export default function App() {
     setSeasonInput(String(season));
 
     (async () => {
-      const cached = await loadCache(player, season);
+      // IndexedDB 有可能因為被封鎖／損壞而永遠不回應，最多等 1.2 秒就改走網路
+      const cached = await Promise.race([
+        loadCache(player, season),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 1200)),
+      ]);
       if (cancelled) return;
 
       if (cached && cached.matches?.length) {
