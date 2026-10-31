@@ -388,6 +388,90 @@ p {
   }
 }
 
+/* ─────────────── archive / install bar ─────────────── */
+
+.actionbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 11px;
+  background: rgba(12, 18, 32, 0.55);
+}
+
+.actionbar-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn.sm {
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.actionbar-note {
+  margin-left: auto;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--muted-2);
+}
+
+.actionbar-note em {
+  font-style: normal;
+  color: #4f6288;
+}
+
+.install-help {
+  position: absolute;
+  z-index: 70;
+  top: calc(100% + 6px);
+  left: 10px;
+  width: min(430px, calc(100vw - 40px));
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #0d1526;
+  box-shadow: 0 24px 60px -20px #000;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.install-help strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.install-help ul {
+  margin: 8px 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 6px;
+}
+
+.install-help b {
+  color: var(--text);
+}
+
+.install-help p {
+  color: var(--muted-2);
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.install-help .link {
+  padding: 0;
+}
+
 /* ─────────────── recents ─────────────── */
 
 .recents {
@@ -1609,6 +1693,29 @@ p {
 
   .btn {
     flex: 0 0 auto;
+  }
+
+  .actionbar {
+    gap: 8px;
+  }
+
+  .actionbar-buttons {
+    width: 100%;
+  }
+
+  .actionbar-buttons .btn {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+
+  .actionbar-note {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .install-help {
+    left: 0;
+    width: calc(100vw - 32px);
   }
 
   .hero {

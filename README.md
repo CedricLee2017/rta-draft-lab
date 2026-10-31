@@ -5,6 +5,7 @@
 
 - **預設玩家：`221145`（xXLaVarXx）** ← 打開網站直接看這位
 - 每天只自動抓 1 次（cron，給 `221145`）；平常不主動抓，避免用掉免費額度
+- 抓過的資料存在瀏覽器，可「下載存檔／匯入存檔」帶到手機，也能安裝成 App 離線看
 - 額度用完時仍可看已快取的資料（橫幅會標示「顯示快取資料」）
 
 輸入玩家 ID → 雲端自動抓取本季全部對戰 → 選角率、被 ban 率、對位勝率、首搶優勢、雙人組合、對手戰績。
@@ -157,14 +158,20 @@ rta-draft-lab/
 │  ├─ src/index.ts        API、KV 快取、Browser Rendering、CORS、cron 預熱
 │  └─ wrangler.toml       [browser] binding + KV + 每日 cron
 ├─ tools/
-│  └─ fetch_player.py     本機抓單一玩家 → payload.json（不耗 Cloudflare 額度）
+│  ├─ fetch_player.py     本機抓單一玩家 → payload.json（不耗 Cloudflare 額度）
+│  └─ make_icons.py       產生 PWA 圖示（Pillow）
 └─ web/
    ├─ src/App.tsx         篩選、分頁、資料載入（stale-while-revalidate）
    ├─ src/lib/stats.ts    純函式統計（選角 / ban / 對位 / 組合 / 首搶）
    ├─ src/lib/api.ts      fetch + IndexedDB 快取
+   ├─ src/lib/archive.ts  存檔（列出／匯出／匯入）
    ├─ src/lib/recents.ts  「最近查看」玩家清單（localStorage）
-   ├─ src/components/     對局卡、魔靈選單、統計面板
-   └─ public/sample-matches.json   示範資料（S39 前 120 場）
+   ├─ src/components/     對局卡、魔靈選單、統計面板、存檔列
+   └─ public/
+      ├─ manifest.webmanifest  PWA 設定
+      ├─ sw.js                service worker（離線開啟）
+      ├─ icons/               App 圖示
+      └─ sample-matches.json  示範資料（S39 前 120 場）
 ```
 
 ## 預設玩家
@@ -184,6 +191,42 @@ rta-draft-lab/
 - 存在 `localStorage["rta:recents"]`，最多 12 筆，同一玩家只留一筆（記最後看的賽季）
 - 顯示在內容區最上方，點一下即切換（會一併更新玩家 ID / 賽季輸入框與 `localStorage`）
 - 右側 `×` 可單筆移除；不會同步到其他裝置，也不含任何帳號資料
+
+## 存檔與離線
+
+抓到的每一份資料都會自動存進瀏覽器（IndexedDB，key 為 `rta:<玩家>:<賽季>`），
+所以**抓過一次就不用再抓**；額度用完、斷網、甚至之後換賽季，都還能翻舊資料。
+
+畫面最上方的存檔列：
+
+| 按鈕 | 作用 |
+| --- | --- |
+| **↓ 下載存檔** | 把這台裝置上所有存檔打包成一個 JSON 下載（手機會存到「檔案」） |
+| **↑ 匯入存檔** | 讀回先前下載的 JSON（例如電腦下載 → 手機匯入），不用重新抓 |
+| **▣ 安裝 App** | 加到手機主畫面（見下一節） |
+
+- 下載檔名：單筆 `rta-221145-S39-20261031-1401.json`；多筆 `rta-archive-20261031-1401.json`
+- 檔案格式：`{ app, version, exportedAt, items: [MatchPayload, ...] }`，內容就是 API 回應，可直接用文字編輯器看
+- 存檔只留在自己的裝置，**不會上傳**；換手機或清瀏覽器資料前記得先下載
+- 讀不到網路時，App 會自動改用本機存檔並顯示黃色「顯示快取資料」提示
+
+## 安裝成 App（PWA）
+
+`manifest.webmanifest` + `sw.js` 讓網站可以像 App 一樣開啟（全螢幕、有自己的圖示、可離線）：
+
+- **Android（Chrome）**：右上 ⋮ →「安裝應用程式」或「加到主畫面」；
+  網站也會自己跳出「安裝 App」按鈕（`beforeinstallprompt`）
+- **iPhone / iPad**：**只能用 Safari** → 下方分享 ⤴ →「加入主畫面」（iOS 不支援 Chrome 安裝 PWA）
+- **電腦（Chrome / Edge）**：網址列右側的安裝圖示
+
+安裝後的行為：
+
+- 開啟時不顯示瀏覽器網址列（`display: standalone`）
+- `sw.js` 會快取 App 外殼，斷網仍可開啟並讀取 IndexedDB 裡的存檔
+- 手機桌面長按圖示有捷徑「看 221145」（也就是 `?player=221145&season=39`）
+
+> 換版後若手機仍開到舊畫面：關掉 App 再開一次即可（`sw.js` 改版時會自動換新快取）。
+> service worker 只在 production build 註冊，本機 `npm run dev` 不會被快取。
 
 ## 開發與部署
 

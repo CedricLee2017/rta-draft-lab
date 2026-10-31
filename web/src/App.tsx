@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArchiveBar } from "./components/ArchiveBar";
 import { MatchList } from "./components/MatchList";
 import { MonsterSelect } from "./components/MonsterSelect";
 import { PlayerHeader } from "./components/PlayerHeader";
@@ -60,6 +61,7 @@ export default function App() {
   const [newestFirst, setNewestFirst] = useState(true);
   const [page, setPage] = useState(1);
   const [recents, setRecents] = useState<RecentPlayer[]>(() => loadRecents());
+  const [archiveVersion, setArchiveVersion] = useState(0);
 
   const load = useCallback(
     async (player: number, season: number, opts: { force?: boolean; silent?: boolean } = {}) => {
@@ -70,7 +72,12 @@ export default function App() {
       try {
         const data = await fetchPlayer(player, season, { refresh: opts.force });
         setPayload(data);
-        void saveCache(data);
+        // 存進 IndexedDB（卡住也不要擋住畫面）
+        await Promise.race([
+          saveCache(data),
+          new Promise((resolve) => setTimeout(resolve, 1500)),
+        ]);
+        setArchiveVersion((v) => v + 1);
         if (data.stale) {
           const mins = Math.round((data.ageSeconds ?? 0) / 60);
           setStaleNote(
@@ -84,7 +91,16 @@ export default function App() {
             (data.cached ? "（KV 快取）" : "（即時抓取）"),
         );
       } catch (e) {
-        setError((e as Error).message);
+        const msg = (e as Error).message;
+        // 連不到 API（額度用完／離線）時，改用本機存檔，至少能繼續看舊資料
+        const fallback = await loadCache(player, season);
+        if (fallback && fallback.matches?.length) {
+          setPayload(fallback);
+          setStaleNote(`無法取得最新資料（${msg}），顯示本機存檔`);
+          setNotice(`本機存檔・${fallback.fetchedAt.slice(0, 16).replace("T", " ")}`);
+        } else {
+          setError(msg);
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -108,7 +124,23 @@ export default function App() {
       /* ignore */
     }
     // 記住使用者上次看的賽季（包含刻意回顧舊賽季的情況）
-    const season = readNum(STORE_SEASON, DEFAULT_SEASON);
+    let season = readNum(STORE_SEASON, DEFAULT_SEASON);
+
+    // 支援 ?player=221145&season=39（PWA 捷徑、分享連結）
+    try {
+      const q = new URLSearchParams(location.search);
+      const qp = Number(q.get("player"));
+      const qs = Number(q.get("season"));
+      if (Number.isInteger(qp) && qp > 0) player = qp;
+      if (Number.isInteger(qs) && qs > 0) season = qs;
+      if ((Number.isInteger(qp) && qp > 0) || (Number.isInteger(qs) && qs > 0)) {
+        localStorage.setItem(STORE_PLAYER, String(player));
+        localStorage.setItem(STORE_SEASON, String(season));
+      }
+    } catch {
+      /* ignore */
+    }
+
     setPlayerInput(String(player));
     setSeasonInput(String(season));
 
@@ -173,6 +205,28 @@ export default function App() {
 
   function dropRecent(id: number) {
     setRecents(forgetPlayer(id));
+  }
+
+  /** 匯入存檔後：優先顯示目前這位玩家的版本，否則顯示檔案裡最新的一筆 */
+  function handleImported(items: MatchPayload[]) {
+    if (!items.length) return;
+    const current = payload
+      ? items.find((i) => i.player.id === payload.player.id && i.season === payload.season)
+      : undefined;
+    const pick = current ?? items[0];
+
+    setPayload(pick);
+    setPlayerInput(String(pick.player.id));
+    setSeasonInput(String(pick.season));
+    try {
+      localStorage.setItem(STORE_PLAYER, String(pick.player.id));
+      localStorage.setItem(STORE_SEASON, String(pick.season));
+    } catch {
+      /* ignore */
+    }
+    setMySel([]);
+    setOppSel([]);
+    setOppQuery("");
   }
 
   function submit(e: React.FormEvent) {
@@ -342,6 +396,14 @@ export default function App() {
       )}
 
       <main className="container">
+        <ArchiveBar
+          payload={payload}
+          version={archiveVersion}
+          onImported={handleImported}
+          onNotice={setNotice}
+          onError={setError}
+        />
+
         {recents.length > 0 && (
           <section className="recents" aria-label="最近查看的玩家">
             <span className="recents-label">最近查看</span>
