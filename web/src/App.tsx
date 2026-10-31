@@ -5,13 +5,15 @@ import { MonsterSelect } from "./components/MonsterSelect";
 import { PlayerHeader } from "./components/PlayerHeader";
 import { StatsPanel } from "./components/StatsPanel";
 import { API_BASE, fetchPlayer, fetchSample, loadCache, saveCache } from "./lib/api";
+import { monsterName } from "./lib/monsters";
 import { forgetPlayer, loadRecents, rememberPlayer, type RecentPlayer } from "./lib/recents";
 import { monsterStats, overview } from "./lib/stats";
 import type { MatchPayload, RtaMatch } from "./lib/types";
 
 type Tab = "matches" | "stats";
 type ResultFilter = "all" | "win" | "lose" | "draw";
-type PickFilter = "all" | "first" | "second";
+type FirstSide = "all" | "me" | "opp";
+type SidePos = "any" | "first" | "banned";
 
 const STORE_PLAYER = "rta:player";
 const STORE_FROM = "rta:seasonFrom";
@@ -28,10 +30,16 @@ const RESULT_LABELS: { key: ResultFilter; label: string }[] = [
   { key: "draw", label: "和" },
 ];
 
-const PICK_LABELS: { key: PickFilter; label: string }[] = [
+const PICK_LABELS: { key: FirstSide; label: string }[] = [
   { key: "all", label: "全部" },
-  { key: "first", label: "首搶" },
-  { key: "second", label: "後手" },
+  { key: "me", label: "我方首搶" },
+  { key: "opp", label: "對手首搶" },
+];
+
+const POS_LABELS: { key: SidePos; label: string }[] = [
+  { key: "any", label: "任一手" },
+  { key: "first", label: "首選" },
+  { key: "banned", label: "被 ban" },
 ];
 
 function readNum(key: string, fallback: number): number {
@@ -60,6 +68,19 @@ function seasonFinished(p?: MatchPayload | null): boolean {
   return Number.isFinite(t) && t < Date.now();
 }
 
+/**
+ * 單邊的魔靈條件：
+ *  any    = 選中的每隻都要在該方 5 隻裡（AND）
+ *  first  = 該方的「首選」就是這隻（陣列第一隻 = 該方第 1 手）
+ *  banned = 該方被 ban 掉的就是這隻
+ */
+function sideMatch(sel: number[], pos: SidePos, list: number[], ban: number): boolean {
+  if (!sel.length) return true;
+  if (pos === "any") return sel.every((id) => list.includes(id));
+  if (pos === "banned") return sel.length === 1 && sel[0] === ban;
+  return sel.length === 1 && sel[0] === list[0];
+}
+
 export default function App() {
   const [playerInput, setPlayerInput] = useState(String(DEFAULT_PLAYER));
   const [fromInput, setFromInput] = useState(String(DEFAULT_SEASON));
@@ -80,9 +101,11 @@ export default function App() {
 
   const [tab, setTab] = useState<Tab>("matches");
   const [result, setResult] = useState<ResultFilter>("all");
-  const [pick, setPick] = useState<PickFilter>("all");
+  const [firstSide, setFirstSide] = useState<FirstSide>("all");
   const [mySel, setMySel] = useState<number[]>([]);
   const [oppSel, setOppSel] = useState<number[]>([]);
+  const [myPos, setMyPos] = useState<SidePos>("any");
+  const [oppPos, setOppPos] = useState<SidePos>("any");
   const [oppQuery, setOppQuery] = useState("");
   const [newestFirst, setNewestFirst] = useState(true);
   const [page, setPage] = useState(1);
@@ -261,7 +284,7 @@ export default function App() {
 
   useEffect(() => {
     setPage(1);
-  }, [result, pick, mySel, oppSel, oppQuery, newestFirst, data, viewFrom, viewTo]);
+  }, [result, firstSide, mySel, oppSel, myPos, oppPos, oppQuery, newestFirst, data, viewFrom, viewTo]);
 
   // 有資料就把玩家記進「最近查看」（記最後看的賽季範圍）
   useEffect(() => {
@@ -335,6 +358,9 @@ export default function App() {
     }
     setMySel([]);
     setOppSel([]);
+    setMyPos("any");
+    setOppPos("any");
+    setFirstSide("all");
     setOppQuery("");
     void loadRange(r.id, r.from, r.to);
   }
@@ -370,6 +396,9 @@ export default function App() {
     }
     setMySel([]);
     setOppSel([]);
+    setMyPos("any");
+    setOppPos("any");
+    setFirstSide("all");
     setOppQuery("");
   }
 
@@ -405,6 +434,9 @@ export default function App() {
     setToInput(String(to));
     setMySel([]);
     setOppSel([]);
+    setMyPos("any");
+    setOppPos("any");
+    setFirstSide("all");
     setOppQuery("");
     void loadRange(player, from, to);
   }
@@ -431,9 +463,11 @@ export default function App() {
 
   function resetFilters() {
     setResult("all");
-    setPick("all");
+    setFirstSide("all");
     setMySel([]);
     setOppSel([]);
+    setMyPos("any");
+    setOppPos("any");
     setOppQuery("");
     setNewestFirst(true);
     if (available.length) {
@@ -450,14 +484,14 @@ export default function App() {
         result === "win" ? m.won === true : result === "lose" ? m.won === false : m.won === null,
       );
     }
-    if (pick !== "all") {
-      arr = arr.filter((m) => (pick === "first" ? m.firstPick : !m.firstPick));
+    if (firstSide !== "all") {
+      arr = arr.filter((m) => (firstSide === "me" ? m.firstPick : !m.firstPick));
     }
-    if (mySel.length) {
-      arr = arr.filter((m) => mySel.every((id) => m.my.includes(id)));
-    }
-    if (oppSel.length) {
-      arr = arr.filter((m) => oppSel.every((id) => m.opp.includes(id)));
+    if (mySel.length || oppSel.length) {
+      arr = arr.filter(
+        (m) =>
+          sideMatch(mySel, myPos, m.my, m.myBan) && sideMatch(oppSel, oppPos, m.opp, m.oppBan),
+      );
     }
     const q = oppQuery.trim().toLowerCase();
     if (q) {
@@ -465,7 +499,7 @@ export default function App() {
     }
 
     return newestFirst ? arr : [...arr].reverse();
-  }, [merged, result, pick, mySel, oppSel, oppQuery, newestFirst]);
+  }, [merged, result, firstSide, mySel, oppSel, myPos, oppPos, oppQuery, newestFirst]);
 
   const tally = useMemo(() => overview(filtered), [filtered]);
 
@@ -486,11 +520,29 @@ export default function App() {
 
   const filterActive =
     result !== "all" ||
-    pick !== "all" ||
+    firstSide !== "all" ||
     mySel.length > 0 ||
     oppSel.length > 0 ||
+    myPos !== "any" ||
+    oppPos !== "any" ||
     oppQuery.trim() !== "" ||
     viewNarrower;
+
+  /** 顯示目前已套用的條件（給 summary bar 用） */
+  const conditionChips = useMemo(() => {
+    const chips: string[] = [];
+    if (firstSide !== "all") chips.push(firstSide === "me" ? "我方首搶" : "對手首搶");
+    const describe = (sel: number[], pos: SidePos, side: string) => {
+      if (!sel.length) return;
+      const names = sel.map((id) => monsterName(id));
+      const shown = names.length > 2 ? `${names.slice(0, 2).join("、")} 等 ${names.length} 隻` : names.join("、");
+      const posLabel = pos === "any" ? "選了" : POS_LABELS.find((p) => p.key === pos)?.label ?? "";
+      chips.push(`${side}${posLabel} ${shown}`);
+    };
+    describe(mySel, myPos, "我方");
+    describe(oppSel, oppPos, "對手");
+    return chips;
+  }, [firstSide, mySel, oppSel, myPos, oppPos]);
 
   return (
     <div className="app">
@@ -699,21 +751,77 @@ export default function App() {
                 ))}
               </div>
 
-              <div className="seg" role="group" aria-label="先後手">
+              <div className="seg" role="group" aria-label="首搶方">
                 {PICK_LABELS.map((p) => (
                   <button
                     key={p.key}
                     type="button"
-                    className={pick === p.key ? "on" : ""}
-                    onClick={() => setPick(p.key)}
+                    className={firstSide === p.key ? "on" : ""}
+                    onClick={() => setFirstSide(p.key)}
+                    title={p.key === "me" ? "只看我方首搶的對局" : p.key === "opp" ? "只看對手首搶的對局" : undefined}
                   >
                     {p.label}
                   </button>
                 ))}
               </div>
 
-              <MonsterSelect label="我方" value={mySel} onChange={setMySel} pinned={myPinned} />
-              <MonsterSelect label="對手" value={oppSel} onChange={setOppSel} pinned={oppPinned} />
+              <div className="side-filter">
+                <MonsterSelect
+                  label="我方"
+                  value={mySel}
+                  onChange={setMySel}
+                  pinned={myPinned}
+                  max={myPos === "any" ? 5 : 1}
+                />
+                {mySel.length > 0 && (
+                  <select
+                    className="pos-select"
+                    value={myPos}
+                    onChange={(e) => {
+                      const v = e.target.value as SidePos;
+                      setMyPos(v);
+                      if (v !== "any") setMySel((cur) => cur.slice(-1));
+                    }}
+                    aria-label="我方魔靈位置條件"
+                    title="任一手 = 5 隻裡有就好；首選 = 該方第 1 手；被 ban = 被對手 ban 掉"
+                  >
+                    {POS_LABELS.map((p) => (
+                      <option key={p.key} value={p.key}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div className="side-filter">
+                <MonsterSelect
+                  label="對手"
+                  value={oppSel}
+                  onChange={setOppSel}
+                  pinned={oppPinned}
+                  max={oppPos === "any" ? 5 : 1}
+                />
+                {oppSel.length > 0 && (
+                  <select
+                    className="pos-select"
+                    value={oppPos}
+                    onChange={(e) => {
+                      const v = e.target.value as SidePos;
+                      setOppPos(v);
+                      if (v !== "any") setOppSel((cur) => cur.slice(-1));
+                    }}
+                    aria-label="對手魔靈位置條件"
+                    title="任一手 = 對手 5 隻裡有就好；首選 = 對手第 1 手；被 ban = 被我 ban 掉"
+                  >
+                    {POS_LABELS.map((p) => (
+                      <option key={p.key} value={p.key}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
 
               <input
                 className="text"
@@ -782,6 +890,11 @@ export default function App() {
                 {tally.wins}勝 {tally.losses}負{tally.draws ? ` ${tally.draws}和` : ""}
               </span>
               {viewSeasons.length > 1 && <span className="tag">{seasonLabel}</span>}
+              {conditionChips.map((c) => (
+                <span key={c} className="tag cond">
+                  {c}
+                </span>
+              ))}
               {filterActive && <span className="tag">已套用篩選</span>}
             </div>
 

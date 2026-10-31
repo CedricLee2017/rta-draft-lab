@@ -864,6 +864,42 @@ p {
   color: var(--muted-2);
 }
 
+.side-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pos-select {
+  appearance: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--muted);
+  padding: 6px 7px;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+.pos-select:hover {
+  color: var(--text);
+  border-color: #2e4067;
+}
+
+.pos-select option {
+  background: #0d1526;
+  color: var(--text);
+}
+
+.summary-bar .tag.cond {
+  background: rgba(242, 198, 92, 0.12);
+  border-color: rgba(242, 198, 92, 0.4);
+  color: #f3d99b;
+}
+
 .seg {
   display: inline-flex;
   border: 1px solid var(--line);
