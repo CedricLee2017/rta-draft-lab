@@ -42,6 +42,36 @@ function draftNumbers(firstPick: boolean): number[] {
   return firstPick ? [1, 4, 5, 8, 9] : [2, 3, 6, 7, 10];
 }
 
+interface SlotPos {
+  col: number;
+  row: 1 | 2;
+  /** 該輪只有一隻 → 垂直置中，橫跨上下兩排 */
+  span?: boolean;
+}
+
+/**
+ * 3 個 column = 三次選秀回合：
+ *   首搶方：1（置中）、4/5、8/9
+ *   後手方：2/3、6/7、10（置中）
+ */
+function slotLayout(firstPick: boolean): SlotPos[] {
+  return firstPick
+    ? [
+        { col: 1, row: 1, span: true },
+        { col: 2, row: 1 },
+        { col: 2, row: 2 },
+        { col: 3, row: 1 },
+        { col: 3, row: 2 },
+      ]
+    : [
+        { col: 1, row: 1 },
+        { col: 1, row: 2 },
+        { col: 2, row: 1 },
+        { col: 2, row: 2 },
+        { col: 3, row: 1, span: true },
+      ];
+}
+
 function Avatar({ src, name }: { src?: string; name: string }) {
   const [broken, setBroken] = useState(false);
   const label = (name || "?").trim().slice(0, 1);
@@ -65,15 +95,24 @@ interface TeamProps {
 }
 
 function Team({ ids, ban, numbers, first, label }: TeamProps) {
+  const layout = slotLayout(first);
+
   return (
     <div className="battle-team" aria-label={label}>
-      {ids.map((id, i) => (
-        <div key={`${id}-${i}`} className={`slot${i === 0 && first ? " first" : ""}`}>
-          <MonsterIcon id={id} size={36} banned={id === ban} />
-          <span className="slot-num">{numbers[i] ?? i + 1}</span>
-          {i === 0 && first && <span className="slot-first">1ST</span>}
-        </div>
-      ))}
+      {ids.map((id, i) => {
+        const pos = layout[i] ?? layout[layout.length - 1];
+        return (
+          <div
+            key={`${id}-${i}`}
+            className={`slot${i === 0 && first ? " first" : ""}${pos.span ? " span" : ""}`}
+            style={{ gridColumn: pos.col, gridRow: pos.span ? "1 / span 2" : pos.row }}
+          >
+            <MonsterIcon id={id} size={36} banned={id === ban} />
+            <span className="slot-num">{numbers[i] ?? i + 1}</span>
+            {i === 0 && first && <span className="slot-first">1ST</span>}
+          </div>
+        );
+      })}
     </div>
   );
 }

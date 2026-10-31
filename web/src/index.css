@@ -1242,9 +1242,18 @@ p {
 
 .battle-team {
   display: grid;
-  grid-template-columns: repeat(3, auto);
+  grid-template-columns: repeat(3, 36px);
+  grid-template-rows: repeat(2, 36px);
   gap: 4px;
+  align-items: center;
+  justify-items: center;
   flex: 0 0 auto;
+}
+
+/* 該輪只有一隻：橫跨上下兩排並置中 */
+.slot.span {
+  grid-row: 1 / span 2;
+  align-self: center;
 }
 
 .slot {
