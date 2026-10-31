@@ -5,6 +5,10 @@ import type { Tally } from "../lib/stats";
 interface Props {
   payload: MatchPayload;
   tally: Tally;
+  /** 目前顯示範圍內的總場數（未套用其他篩選） */
+  matchCount: number;
+  /** 例如 S39 或 S37–39 */
+  seasonLabel: string;
 }
 
 const fmt = (n: number | null | undefined) => (n === null || n === undefined ? "–" : n.toLocaleString("en-US"));
@@ -16,13 +20,14 @@ function rateClass(r: number | null): string {
   return "mid";
 }
 
-export function PlayerHeader({ payload, tally }: Props) {
+export function PlayerHeader({ payload, tally, matchCount, seasonLabel }: Props) {
   const s = payload.summary;
   const [imgOk, setImgOk] = useState(true);
 
   const winRate = tally.winRate ?? s.winRate;
   const recent = s.daily.slice(-21);
   const maxPlayed = Math.max(1, ...recent.map((d) => d.played));
+  const multi = seasonLabel.includes("–");
 
   return (
     <section className="player">
@@ -39,7 +44,7 @@ export function PlayerHeader({ payload, tally }: Props) {
           <p className="player-sub">
             <span className="chip">ID {payload.player.id}</span>
             {s.country && <span className="chip">{s.country}</span>}
-            <span className="chip">S{payload.season}</span>
+            <span className="chip">{seasonLabel || `S${payload.season}`}</span>
             {payload.sample && <span className="chip warn">示範資料</span>}
           </p>
         </div>
@@ -47,7 +52,7 @@ export function PlayerHeader({ payload, tally }: Props) {
 
       <div className="tiles">
         <div className="tile">
-          <span className="tile-k">本季勝率</span>
+          <span className="tile-k">{multi ? "範圍勝率" : "本季勝率"}</span>
           <strong className={`tile-v ${rateClass(winRate)}`}>
             {winRate === null ? "–" : `${winRate.toFixed(1)}%`}
           </strong>
@@ -67,9 +72,9 @@ export function PlayerHeader({ payload, tally }: Props) {
 
         <div className="tile">
           <span className="tile-k">紀錄場數</span>
-          <strong className="tile-v">{fmt(payload.matches.length)}</strong>
+          <strong className="tile-v">{fmt(matchCount)}</strong>
           <span className="tile-s">
-            {s.total && s.total !== payload.matches.length ? `官方總計 ${s.total}` : "已載入全部對局"}
+            {multi ? `${seasonLabel}・已載入` : s.total && s.total !== matchCount ? `官方總計 ${s.total}` : "已載入全部對局"}
           </span>
         </div>
 

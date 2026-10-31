@@ -190,7 +190,7 @@ p {
   gap: 3px;
 }
 
-.field > span {
+.field > span:first-child {
   font-size: 10px;
   color: var(--muted-2);
   letter-spacing: 0.08em;
@@ -211,6 +211,23 @@ p {
 
 .field.narrow input {
   width: 66px;
+}
+
+.field .range {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.field .range input {
+  width: 46px;
+  padding: 7px 4px;
+  text-align: center;
+}
+
+.field .range i {
+  font-style: normal;
+  color: var(--muted-2);
 }
 
 .field input:focus {
@@ -809,6 +826,44 @@ p {
   margin-bottom: 10px;
 }
 
+.season-view {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  font-size: 12px;
+}
+
+.season-view-label {
+  font-size: 11px;
+  color: var(--muted-2);
+}
+
+.season-view select {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  padding: 2px 1px;
+  outline: none;
+  cursor: pointer;
+}
+
+.season-view select option {
+  background: #0d1526;
+  color: var(--text);
+}
+
+.season-view i {
+  font-style: normal;
+  color: var(--muted-2);
+}
+
 .seg {
   display: inline-flex;
   border: 1px solid var(--line);
@@ -1360,6 +1415,20 @@ p {
 .battle-result time {
   font-size: 10px;
   color: var(--muted-2);
+  white-space: nowrap;
+}
+
+.battle-season {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 0 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(88, 166, 255, 0.3);
+  background: rgba(88, 166, 255, 0.12);
+  color: #a9ccff;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1.5;
   white-space: nowrap;
 }
 
@@ -2051,6 +2120,11 @@ p {
     align-items: baseline;
     gap: 6px;
     padding: 3px 8px;
+  }
+
+  .battle-season {
+    align-self: center;
+    margin-top: 0;
   }
 
   .battle-result strong {

@@ -180,6 +180,19 @@ function deriveSummary(matches: Match[]): Summary {
   };
 }
 
+/** 賽季是否已結束（結束時間已過）→ 資料不會再變，可以長期快取、不必重抓 */
+function seasonEnded(p: Payload | null): boolean {
+  const end = p?.summary?.seasonEnd;
+  if (!end) return false;
+  const t = Date.parse(end);
+  return Number.isFinite(t) && t < Date.now();
+}
+
+/** 已結束的賽季快取一年；進行中的賽季 14 天 */
+function ttlFor(p: Payload): number {
+  return seasonEnded(p) ? 60 * 60 * 24 * 365 : KV_TTL_SECONDS;
+}
+
 function mergeMatches(base: Match[], fresh: Match[]): Match[] {
   const map = new Map<number, Match>();
   for (const m of base) if (m.battleId) map.set(m.battleId, m);
@@ -485,6 +498,16 @@ async function handlePlayer(request: Request, env: Env, url: URL): Promise<Respo
     cached = null;
   }
 
+  if (cached && !full && seasonEnded(cached)) {
+    // 已結束的賽季資料不會再變：不管過多久、有沒有按更新，都直接回快取
+    const age = Math.round((Date.now() - Date.parse(cached.fetchedAt)) / 1000);
+    return json(
+      { ...cached, cached: true, sealed: true, ageSeconds: Number.isFinite(age) ? age : null },
+      200,
+      cors,
+    );
+  }
+
   if (cached && !refresh) {
     const age = Date.now() - Date.parse(cached.fetchedAt);
     if (Number.isFinite(age) && age >= 0 && age < FRESH_MS) {
@@ -521,7 +544,7 @@ async function handlePlayer(request: Request, env: Env, url: URL): Promise<Respo
     }
 
     const payload = await scrape(env, playerId, season, full ? null : cached);
-    await env.MATCHES.put(key, JSON.stringify(payload), { expirationTtl: KV_TTL_SECONDS });
+    await env.MATCHES.put(key, JSON.stringify(payload), { expirationTtl: ttlFor(payload) });
     return json({ ...payload, cached: false, ageSeconds: 0 }, 200, cors);
   } catch (e) {
     // 抓取失敗時，寧可回舊資料也不要讓使用者看到空白
@@ -624,7 +647,7 @@ async function warm(env: Env): Promise<void> {
       const key = `m:${playerId}:${season}`;
       const cached = (await env.MATCHES.get(key, "json")) as Payload | null;
       const payload = await scrape(env, playerId, season, cached);
-      await env.MATCHES.put(key, JSON.stringify(payload), { expirationTtl: KV_TTL_SECONDS });
+      await env.MATCHES.put(key, JSON.stringify(payload), { expirationTtl: ttlFor(payload) });
     } catch (e) {
       console.error(`warm ${entry} failed:`, (e as Error).message);
     }

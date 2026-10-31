@@ -29,6 +29,8 @@ export interface RtaMatch {
   /** 頭像（lucksack 靜態圖，可能載不到 → 前端顯示名稱首字） */
   myImage?: string;
   oppImage?: string;
+  /** 合併多賽季時由前端標上（存檔裡沒有這個欄位） */
+  season?: number;
 }
 
 export interface DailyStat {
@@ -73,6 +75,8 @@ export interface MatchPayload {
   /** 由 Worker 回報：是否為 KV 快取 */
   cached?: boolean;
   ageSeconds?: number;
+  /** 已結束的賽季：Worker 不再重抓，永遠回同一份 */
+  sealed?: boolean;
   /** 抓取失敗、改回舊資料 */
   stale?: boolean;
   warning?: string;

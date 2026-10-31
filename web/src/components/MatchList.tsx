@@ -117,7 +117,7 @@ function Team({ ids, ban, numbers, first, label }: TeamProps) {
   );
 }
 
-function MatchCard({ m, me }: { m: RtaMatch; me: PlayerInfo }) {
+function MatchCard({ m, me, showSeason }: { m: RtaMatch; me: PlayerInfo; showSeason: boolean }) {
   const r = resultOf(m);
   const resultText = r === "win" ? "勝利" : r === "lose" ? "敗北" : "和局";
 
@@ -128,6 +128,9 @@ function MatchCard({ m, me }: { m: RtaMatch; me: PlayerInfo }) {
         <time dateTime={m.time} title={fmtTime(m.time)}>
           {relTime(m.time)}
         </time>
+        {showSeason && m.season !== undefined && (
+          <span className="battle-season">S{m.season}</span>
+        )}
       </div>
 
       <div className="battle-side mine">
@@ -182,9 +185,11 @@ interface Props {
   page: number;
   onPage: (page: number) => void;
   me: PlayerInfo;
+  /** 檢視多個賽季時，在卡片上標示 S37 / S38… */
+  showSeason?: boolean;
 }
 
-export function MatchList({ matches, page, onPage, me }: Props) {
+export function MatchList({ matches, page, onPage, me, showSeason = false }: Props) {
   const pages = Math.max(1, Math.ceil(matches.length / PAGE_SIZE));
   const current = Math.min(Math.max(1, page), pages);
   const start = (current - 1) * PAGE_SIZE;
@@ -203,7 +208,7 @@ export function MatchList({ matches, page, onPage, me }: Props) {
     <div className="matchlist">
       <div className="battle-grid">
         {slice.map((m) => (
-          <MatchCard key={m.battleId} m={m} me={me} />
+          <MatchCard key={m.battleId} m={m} me={me} showSeason={showSeason} />
         ))}
       </div>
 
