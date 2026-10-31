@@ -7,6 +7,8 @@ export interface Monster {
   el: number;
   /** 原生星數 */
   nat: number;
+  /** 0=未覺醒原名 1=已覺醒 2=二次覺醒 */
+  awk: number;
   icon: string;
 }
 

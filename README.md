@@ -179,6 +179,7 @@ rta-draft-lab/
 │  └─ wrangler.toml       [browser] binding + KV + 每日 cron
 ├─ tools/
 │  ├─ fetch_player.py     本機抓單一玩家 → payload.json（不耗 Cloudflare 額度）
+│  ├─ make_monster_data.py 從 sw-tick-lab 圖鑑產生前端魔靈清單
 │  └─ make_icons.py       產生 PWA 圖示（Pillow）
 └─ web/
    ├─ src/App.tsx         篩選、分頁、資料載入（stale-while-revalidate）
@@ -211,6 +212,19 @@ rta-draft-lab/
 - 存在 `localStorage["rta:recents"]`，最多 12 筆，同一玩家只留一筆（記最後看的賽季）
 - 顯示在內容區最上方，點一下即切換（會一併更新玩家 ID / 賽季輸入框與 `localStorage`）
 - 右側 `×` 可單筆移除；不會同步到其他裝置，也不含任何帳號資料
+
+## 選擇魔靈
+
+篩選列上的「我方／對手」按鈕會開啟選擇視窗，操作方式跟 lucksack 一樣：
+
+- **搜尋**：英文名稱或 ID（例：`Sonia`、`26113`）
+- **元素**：全部／水／火／風／光／暗（彩色圓點）
+- **胎生星級**：1★–5★
+- **只顯示已覺醒**：隱藏未覺醒原名（資料裡的 `awk = 0`，約 837 隻）
+- 點圖示加入／移出，最多 5 隻；按 **完成** 才套用，關閉視窗或按 Esc 不會改動原本的篩選
+- 底部顯示已選魔靈（點一下可移除）與 `n/5`
+- 沒有搜尋／篩選時，清單依「你這季最常出場」排序；有搜尋或篩選時依名稱排序
+- 一次最多先渲染 240 隻（1987 隻全畫會卡），上方會提示用條件縮小範圍
 
 ## 存檔與離線
 
