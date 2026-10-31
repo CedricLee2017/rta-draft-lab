@@ -556,7 +556,7 @@ export default function App() {
             </div>
 
             {tab === "matches" ? (
-              <MatchList matches={filtered} page={page} onPage={setPage} />
+              <MatchList matches={filtered} page={page} onPage={setPage} me={payload.player} />
             ) : (
               <StatsPanel matches={filtered} tally={tally} />
             )}

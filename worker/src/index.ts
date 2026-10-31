@@ -53,6 +53,9 @@ interface Match {
   oppName: string;
   bracket: number | null;
   oppBracket: number | null;
+  /** 頭像網址（lucksack 靜態圖） */
+  myImage?: string;
+  oppImage?: string;
 }
 
 interface DailyStat {
@@ -117,6 +120,8 @@ function normalizeMatch(raw: Json): Match {
     oppName: typeof raw.opponent_username === "string" ? raw.opponent_username : "",
     bracket: num(raw.my_rank_bracket),
     oppBracket: num(raw.opponent_rank_bracket),
+    myImage: typeof raw.my_image === "string" ? raw.my_image : "",
+    oppImage: typeof raw.opponent_image === "string" ? raw.opponent_image : "",
   };
 }
 

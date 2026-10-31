@@ -1093,144 +1093,226 @@ p {
   box-shadow: 0 0 8px rgba(255, 107, 107, 0.8);
 }
 
-/* ─────────────── match list ─────────────── */
+/* ─────────────── battle list ─────────────── */
 
-.match-grid {
+.battle-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
-  gap: 10px;
+  grid-template-columns: 1fr;
+  gap: 8px;
 }
 
-.match {
-  position: relative;
-  padding: 10px 12px 11px;
+.battle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
   border: 1px solid var(--line-soft);
   border-left: 3px solid var(--muted-2);
-  border-radius: 11px;
-  background: linear-gradient(160deg, rgba(18, 26, 45, 0.85), rgba(11, 17, 30, 0.85));
-  transition: border-color 0.15s, transform 0.1s;
+  border-radius: 12px;
+  background: linear-gradient(115deg, rgba(18, 26, 45, 0.92), rgba(11, 17, 30, 0.85));
+  transition: border-color 0.15s;
+  min-width: 0;
 }
 
-.match:hover {
+.battle:hover {
   border-color: #2e4067;
-  transform: translateY(-1px);
 }
 
-.match.win {
+.battle.win {
   border-left-color: var(--green);
 }
 
-.match.lose {
+.battle.lose {
   border-left-color: var(--red);
 }
 
-.match.draw {
+.battle.draw {
   border-left-color: var(--muted-2);
 }
 
-.match-head {
+.battle-result {
+  flex: 0 0 88px;
   display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-bottom: 8px;
-  font-size: 11px;
-  color: var(--muted-2);
-  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 9px;
+  border-radius: 9px;
+  border: 1px solid var(--line-soft);
+  background: rgba(9, 14, 26, 0.55);
 }
 
-.badge {
-  padding: 0 6px;
-  border-radius: 5px;
-  font-size: 11px;
+.battle-result strong {
+  font-size: 13px;
   font-weight: 800;
-  line-height: 1.6;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.1em;
 }
 
-.badge.win {
-  background: rgba(67, 217, 138, 0.16);
-  color: var(--green);
-}
-
-.badge.lose {
-  background: rgba(255, 107, 107, 0.16);
-  color: var(--red);
-}
-
-.badge.draw {
-  background: rgba(139, 156, 192, 0.16);
-  color: var(--muted);
-}
-
-.badge.pick {
-  background: rgba(242, 198, 92, 0.16);
-  color: var(--gold);
-}
-
-.badge.second {
-  background: rgba(139, 156, 192, 0.12);
+.battle-result time {
+  font-size: 10px;
   color: var(--muted-2);
-}
-
-.match-head time {
-  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.match-opp {
-  flex: 1;
-  min-width: 0;
+.battle.win .battle-result strong {
+  color: var(--green);
+}
+
+.battle.lose .battle-result strong {
+  color: var(--red);
+}
+
+.battle.draw .battle-result strong {
   color: var(--muted);
-  font-weight: 600;
+}
+
+.battle-side {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.battle-side.mine {
+  flex: 1 1 auto;
+  justify-content: flex-end;
+}
+
+.battle-side.theirs {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+}
+
+.battle-who {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 76px;
+  flex: 0 0 76px;
+  min-width: 0;
+  text-align: center;
+}
+
+.battle-avatar {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(140deg, #1d2c4d, #0e1729);
+  border: 1px solid var(--line);
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.battle-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.battle-id {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.2;
+  min-width: 0;
+  width: 100%;
+}
+
+.battle-name {
+  font-size: 11.5px;
+  font-weight: 700;
+  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.match-score {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
+.battle-score {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  color: var(--text);
-  white-space: nowrap;
 }
 
-.match-score i {
-  font-style: normal;
-  color: var(--muted-2);
-  margin: 0 1px;
-}
-
-.match-score b {
-  margin-left: 5px;
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.match-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 2px 0;
-}
-
-.row-tag {
-  flex: 0 0 26px;
-  font-size: 10px;
-  color: var(--gold);
-  letter-spacing: 0.04em;
-  text-align: right;
-}
-
-.row-tag.opp {
-  color: var(--purple);
-}
-
-.icons {
-  display: flex;
+.battle-team {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
   gap: 4px;
+  flex: 0 0 auto;
+}
+
+.slot {
+  position: relative;
+}
+
+.slot-num {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  min-width: 13px;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: #0a1120;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.slot-first {
+  position: absolute;
+  left: -4px;
+  top: -5px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: linear-gradient(160deg, #ffe08a, #e0a92c);
+  color: #241a02;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  box-shadow: 0 2px 6px -2px rgba(242, 198, 92, 0.85);
+}
+
+.battle-vs {
+  position: relative;
+  flex: 0 0 26px;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  color: var(--muted-2);
+  font-size: 11px;
+}
+
+.battle-vs::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 50%;
+  width: 1px;
+  background: var(--line-soft);
+  transform: translateX(-50%);
+}
+
+.battle-vs span {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #0b1120;
+  border: 1px solid var(--line);
 }
 
 .pager {
@@ -1738,8 +1820,42 @@ p {
     flex: 1 1 100%;
   }
 
-  .match-grid {
-    grid-template-columns: 1fr;
+  .battle {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .battle-result {
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 6px;
+    padding: 3px 8px;
+  }
+
+  .battle-result strong {
+    font-size: 11.5px;
+  }
+
+  .battle-vs {
+    display: none;
+  }
+
+  .battle-side.mine,
+  .battle-side.theirs {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+
+  .battle-name {
+    max-width: 100%;
+    font-size: 11px;
+  }
+
+  .battle-who {
+    width: 64px;
+    flex: 0 0 64px;
   }
 
   .two-col {

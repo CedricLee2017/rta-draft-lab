@@ -45,6 +45,8 @@ def normalize_match(m: dict) -> dict:
         "oppName": m.get("opponent_username") or "",
         "bracket": m.get("my_rank_bracket"),
         "oppBracket": m.get("opponent_rank_bracket"),
+        "myImage": m.get("my_image") or "",
+        "oppImage": m.get("opponent_image") or "",
     }
 
 

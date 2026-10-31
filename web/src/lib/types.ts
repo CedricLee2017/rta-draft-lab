@@ -26,6 +26,9 @@ export interface RtaMatch {
   /** 我方階級（12 = 金 3 … 14 = 金 1） */
   bracket: number | null;
   oppBracket: number | null;
+  /** 頭像（lucksack 靜態圖，可能載不到 → 前端顯示名稱首字） */
+  myImage?: string;
+  oppImage?: string;
 }
 
 export interface DailyStat {
