@@ -16,7 +16,8 @@ id = "47c4f3e6931c4992b8a743cbdb8aff56"
 # 允許的來源，逗號分隔；"*" 代表全部（公開唯讀資料，可接受）
 ALLOWED_ORIGINS = "*"
 # 每日 cron 預熱清單，格式 "playerId:season,playerId:season"
-WARM_PLAYERS = "174018:39"
+# 只預熱使用者最常看的玩家，避免浪費免費方案的瀏覽器分鐘數
+WARM_PLAYERS = "221145:39"
 
 [observability]
 enabled = true

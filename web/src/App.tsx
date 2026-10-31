@@ -14,7 +14,8 @@ type PickFilter = "all" | "first" | "second";
 
 const STORE_PLAYER = "rta:player";
 const STORE_SEASON = "rta:season";
-const DEFAULT_PLAYER = 174018;
+const STORE_DEFAULT = "rta:defaultPlayer";
+const DEFAULT_PLAYER = 221145;
 const DEFAULT_SEASON = 39;
 
 const RESULT_LABELS: { key: ResultFilter; label: string }[] = [
@@ -95,7 +96,17 @@ export default function App() {
   // 首次載入：先畫 IndexedDB 快取（0 網路請求），太舊才背景更新
   useEffect(() => {
     let cancelled = false;
-    const player = readNum(STORE_PLAYER, DEFAULT_PLAYER);
+    let player = readNum(STORE_PLAYER, DEFAULT_PLAYER);
+    // 預設玩家換人時，只遷移一次：舊的「上次看的玩家」是上一個預設，直接換成新預設
+    try {
+      if (localStorage.getItem(STORE_DEFAULT) !== String(DEFAULT_PLAYER)) {
+        player = DEFAULT_PLAYER;
+        localStorage.setItem(STORE_DEFAULT, String(DEFAULT_PLAYER));
+        localStorage.setItem(STORE_PLAYER, String(DEFAULT_PLAYER));
+      }
+    } catch {
+      /* ignore */
+    }
     // 記住使用者上次看的賽季（包含刻意回顧舊賽季的情況）
     const season = readNum(STORE_SEASON, DEFAULT_SEASON);
     setPlayerInput(String(player));
@@ -276,7 +287,7 @@ export default function App() {
               value={playerInput}
               onChange={(e) => setPlayerInput(e.target.value.replace(/[^\d]/g, ""))}
               inputMode="numeric"
-              placeholder="174018"
+              placeholder="221145"
               aria-label="玩家 ID"
             />
           </label>
