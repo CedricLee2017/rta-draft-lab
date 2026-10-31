@@ -894,6 +894,49 @@ p {
   color: var(--text);
 }
 
+/* 每隻魔靈的位置設定 */
+.condbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding: 8px 12px;
+  margin: -2px 0 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: rgba(12, 18, 32, 0.55);
+}
+
+.condbar-side {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.condbar-label {
+  font-size: 11px;
+  color: var(--muted-2);
+  letter-spacing: 0.06em;
+}
+
+.cond-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 4px 2px 2px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: rgba(16, 24, 40, 0.65);
+}
+
+.cond-item .pos-select {
+  padding: 3px 4px;
+  border: none;
+  background: transparent;
+  font-size: 11px;
+}
+
 .summary-bar .tag.cond {
   background: rgba(242, 198, 92, 0.12);
   border-color: rgba(242, 198, 92, 0.4);

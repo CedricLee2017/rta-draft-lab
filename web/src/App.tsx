@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArchiveBar } from "./components/ArchiveBar";
 import { MatchList } from "./components/MatchList";
+import { MonsterIcon } from "./components/MonsterIcon";
 import { MonsterSelect } from "./components/MonsterSelect";
 import { PlayerHeader } from "./components/PlayerHeader";
 import { StatsPanel } from "./components/StatsPanel";
@@ -70,15 +71,36 @@ function seasonFinished(p?: MatchPayload | null): boolean {
 
 /**
  * 單邊的魔靈條件：
- *  any    = 選中的每隻都要在該方 5 隻裡（AND）
- *  first  = 該方的「首選」就是這隻（陣列第一隻 = 該方第 1 手）
- *  banned = 該方被 ban 掉的就是這隻
+ *  - 選中的每隻都要在該方 5 隻裡（AND）
+ *  - 每隻可以再指定位置：首選 = 該方第 1 手、被 ban = 該方被 ban 的那隻
  */
-function sideMatch(sel: number[], pos: SidePos, list: number[], ban: number): boolean {
+function sideMatch(
+  sel: number[],
+  pos: Record<number, SidePos>,
+  list: number[],
+  ban: number,
+): boolean {
   if (!sel.length) return true;
-  if (pos === "any") return sel.every((id) => list.includes(id));
-  if (pos === "banned") return sel.length === 1 && sel[0] === ban;
-  return sel.length === 1 && sel[0] === list[0];
+  if (!sel.every((id) => list.includes(id))) return false;
+  for (const id of sel) {
+    const p = pos[id] ?? "any";
+    if (p === "first" && list[0] !== id) return false;
+    if (p === "banned" && ban !== id) return false;
+  }
+  return true;
+}
+
+/** 只保留還有選中的魔靈的位置設定 */
+function prunePos(
+  pos: Record<number, SidePos>,
+  ids: number[],
+): Record<number, SidePos> {
+  const next: Record<number, SidePos> = {};
+  for (const id of ids) {
+    const p = pos[id];
+    if (p && p !== "any") next[id] = p;
+  }
+  return next;
 }
 
 export default function App() {
@@ -104,8 +126,8 @@ export default function App() {
   const [firstSide, setFirstSide] = useState<FirstSide>("all");
   const [mySel, setMySel] = useState<number[]>([]);
   const [oppSel, setOppSel] = useState<number[]>([]);
-  const [myPos, setMyPos] = useState<SidePos>("any");
-  const [oppPos, setOppPos] = useState<SidePos>("any");
+  const [myPos, setMyPos] = useState<Record<number, SidePos>>({});
+  const [oppPos, setOppPos] = useState<Record<number, SidePos>>({});
   const [oppQuery, setOppQuery] = useState("");
   const [newestFirst, setNewestFirst] = useState(true);
   const [page, setPage] = useState(1);
@@ -358,8 +380,8 @@ export default function App() {
     }
     setMySel([]);
     setOppSel([]);
-    setMyPos("any");
-    setOppPos("any");
+    setMyPos({});
+    setOppPos({});
     setFirstSide("all");
     setOppQuery("");
     void loadRange(r.id, r.from, r.to);
@@ -396,8 +418,8 @@ export default function App() {
     }
     setMySel([]);
     setOppSel([]);
-    setMyPos("any");
-    setOppPos("any");
+    setMyPos({});
+    setOppPos({});
     setFirstSide("all");
     setOppQuery("");
   }
@@ -434,8 +456,8 @@ export default function App() {
     setToInput(String(to));
     setMySel([]);
     setOppSel([]);
-    setMyPos("any");
-    setOppPos("any");
+    setMyPos({});
+    setOppPos({});
     setFirstSide("all");
     setOppQuery("");
     void loadRange(player, from, to);
@@ -466,8 +488,8 @@ export default function App() {
     setFirstSide("all");
     setMySel([]);
     setOppSel([]);
-    setMyPos("any");
-    setOppPos("any");
+    setMyPos({});
+    setOppPos({});
     setOppQuery("");
     setNewestFirst(true);
     if (available.length) {
@@ -523,8 +545,6 @@ export default function App() {
     firstSide !== "all" ||
     mySel.length > 0 ||
     oppSel.length > 0 ||
-    myPos !== "any" ||
-    oppPos !== "any" ||
     oppQuery.trim() !== "" ||
     viewNarrower;
 
@@ -532,17 +552,41 @@ export default function App() {
   const conditionChips = useMemo(() => {
     const chips: string[] = [];
     if (firstSide !== "all") chips.push(firstSide === "me" ? "我方首搶" : "對手首搶");
-    const describe = (sel: number[], pos: SidePos, side: string) => {
+
+    const describe = (sel: number[], pos: Record<number, SidePos>, side: string) => {
       if (!sel.length) return;
       const names = sel.map((id) => monsterName(id));
-      const shown = names.length > 2 ? `${names.slice(0, 2).join("、")} 等 ${names.length} 隻` : names.join("、");
-      const posLabel = pos === "any" ? "選了" : POS_LABELS.find((p) => p.key === pos)?.label ?? "";
-      chips.push(`${side}${posLabel} ${shown}`);
+      const shown =
+        names.length > 3 ? `${names.slice(0, 3).join("、")} 等 ${names.length} 隻` : names.join("、");
+      const detail: string[] = [];
+      const first = sel.find((id) => pos[id] === "first");
+      const banned = sel.find((id) => pos[id] === "banned");
+      if (first !== undefined) detail.push(`首選 ${monsterName(first)}`);
+      if (banned !== undefined) detail.push(`被 ban ${monsterName(banned)}`);
+      chips.push(`${side} ${shown}${detail.length ? `（${detail.join("；")}）` : ""}`);
     };
+
     describe(mySel, myPos, "我方");
     describe(oppSel, oppPos, "對手");
     return chips;
   }, [firstSide, mySel, oppSel, myPos, oppPos]);
+
+  /** 設定某隻魔靈的位置；「首選」「被 ban」每邊各只能有一個 */
+  function setSidePos(side: "my" | "opp", id: number, pos: SidePos) {
+    const apply = (prev: Record<number, SidePos>) => {
+      const next: Record<number, SidePos> = { ...prev };
+      if (pos === "first" || pos === "banned") {
+        for (const k of Object.keys(next)) {
+          const key = Number(k);
+          if (key !== id && next[key] === pos) next[key] = "any";
+        }
+      }
+      next[id] = pos;
+      return next;
+    };
+    if (side === "my") setMyPos(apply);
+    else setOppPos(apply);
+  }
 
   return (
     <div className="app">
@@ -765,63 +809,25 @@ export default function App() {
                 ))}
               </div>
 
-              <div className="side-filter">
-                <MonsterSelect
-                  label="我方"
-                  value={mySel}
-                  onChange={setMySel}
-                  pinned={myPinned}
-                  max={myPos === "any" ? 5 : 1}
-                />
-                {mySel.length > 0 && (
-                  <select
-                    className="pos-select"
-                    value={myPos}
-                    onChange={(e) => {
-                      const v = e.target.value as SidePos;
-                      setMyPos(v);
-                      if (v !== "any") setMySel((cur) => cur.slice(-1));
-                    }}
-                    aria-label="我方魔靈位置條件"
-                    title="任一手 = 5 隻裡有就好；首選 = 該方第 1 手；被 ban = 被對手 ban 掉"
-                  >
-                    {POS_LABELS.map((p) => (
-                      <option key={p.key} value={p.key}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
+              <MonsterSelect
+                label="我方"
+                value={mySel}
+                onChange={(ids) => {
+                  setMySel(ids);
+                  setMyPos((prev) => prunePos(prev, ids));
+                }}
+                pinned={myPinned}
+              />
 
-              <div className="side-filter">
-                <MonsterSelect
-                  label="對手"
-                  value={oppSel}
-                  onChange={setOppSel}
-                  pinned={oppPinned}
-                  max={oppPos === "any" ? 5 : 1}
-                />
-                {oppSel.length > 0 && (
-                  <select
-                    className="pos-select"
-                    value={oppPos}
-                    onChange={(e) => {
-                      const v = e.target.value as SidePos;
-                      setOppPos(v);
-                      if (v !== "any") setOppSel((cur) => cur.slice(-1));
-                    }}
-                    aria-label="對手魔靈位置條件"
-                    title="任一手 = 對手 5 隻裡有就好；首選 = 對手第 1 手；被 ban = 被我 ban 掉"
-                  >
-                    {POS_LABELS.map((p) => (
-                      <option key={p.key} value={p.key}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
+              <MonsterSelect
+                label="對手"
+                value={oppSel}
+                onChange={(ids) => {
+                  setOppSel(ids);
+                  setOppPos((prev) => prunePos(prev, ids));
+                }}
+                pinned={oppPinned}
+              />
 
               <input
                 className="text"
@@ -878,6 +884,58 @@ export default function App() {
                 </button>
               )}
             </div>
+
+            {(mySel.length > 0 || oppSel.length > 0) && (
+              <div className="condbar">
+                {mySel.length > 0 && (
+                  <div className="condbar-side">
+                    <span className="condbar-label">我方</span>
+                    {mySel.map((id) => (
+                      <span className="cond-item" key={id}>
+                        <MonsterIcon id={id} size={26} />
+                        <select
+                          className="pos-select"
+                          value={myPos[id] ?? "any"}
+                          onChange={(e) => setSidePos("my", id, e.target.value as SidePos)}
+                          aria-label={`${monsterName(id)} 的位置`}
+                          title="首選 = 我方第 1 手；被 ban = 被對手 ban 掉"
+                        >
+                          {POS_LABELS.map((p) => (
+                            <option key={p.key} value={p.key}>
+                              {p.label}
+                            </option>
+                          ))}
+                        </select>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {oppSel.length > 0 && (
+                  <div className="condbar-side">
+                    <span className="condbar-label">對手</span>
+                    {oppSel.map((id) => (
+                      <span className="cond-item" key={id}>
+                        <MonsterIcon id={id} size={26} />
+                        <select
+                          className="pos-select"
+                          value={oppPos[id] ?? "any"}
+                          onChange={(e) => setSidePos("opp", id, e.target.value as SidePos)}
+                          aria-label={`${monsterName(id)} 的位置`}
+                          title="首選 = 對手第 1 手；被 ban = 被我 ban 掉"
+                        >
+                          {POS_LABELS.map((p) => (
+                            <option key={p.key} value={p.key}>
+                              {p.label}
+                            </option>
+                          ))}
+                        </select>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="summary-bar">
               <span>
