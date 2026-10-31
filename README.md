@@ -1,7 +1,7 @@
 # RTA Draft Lab
 
 魔靈召喚（Sky Arena）RTA 對戰紀錄與 BP 分析。
-**線上使用：<https://rta-draft-lab.pages.dev>**
+**線上使用：<https://rta-draft-lab.pages.dev>**　｜　**原始碼：<https://github.com/CedricLee2017/rta-draft-lab>**
 
 輸入玩家 ID → 雲端自動抓取本季全部對戰 → 選角率、被 ban 率、對位勝率、首搶優勢、雙人組合、對手戰績。
 資料在瀏覽器端分析，帳號資料不上傳；對戰紀錄快取在 IndexedDB，回訪幾乎零等待。
