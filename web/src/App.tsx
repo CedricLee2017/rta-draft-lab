@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArchiveBar } from "./components/ArchiveBar";
+import { BpAnalysis } from "./components/BpAnalysis";
 import { MatchList } from "./components/MatchList";
 import { MonsterIcon } from "./components/MonsterIcon";
 import { MonsterSelect } from "./components/MonsterSelect";
@@ -11,7 +12,7 @@ import { forgetPlayer, loadRecents, rememberPlayer, type RecentPlayer } from "./
 import { monsterStats, overview } from "./lib/stats";
 import type { MatchPayload, RtaMatch } from "./lib/types";
 
-type Tab = "matches" | "stats";
+type Tab = "matches" | "stats" | "bp";
 type ResultFilter = "all" | "win" | "lose" | "draw";
 type FirstSide = "all" | "me" | "opp";
 type SidePos = "any" | "first" | "banned";
@@ -775,6 +776,9 @@ export default function App() {
               <button type="button" className={tab === "stats" ? "on" : ""} onClick={() => setTab("stats")}>
                 統計分析
               </button>
+              <button type="button" className={tab === "bp" ? "on" : ""} onClick={() => setTab("bp")}>
+                BP 深度
+              </button>
               <span className="tabs-status">
                 {refreshing ? "背景更新中…" : notice}
                 {primary.sample && "・示範資料"}
@@ -964,8 +968,10 @@ export default function App() {
                 me={primary.player}
                 showSeason={viewSeasons.length > 1}
               />
-            ) : (
+            ) : tab === "stats" ? (
               <StatsPanel matches={filtered} tally={tally} />
+            ) : (
+              <BpAnalysis matches={filtered} />
             )}
           </>
         )}
