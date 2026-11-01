@@ -12,7 +12,8 @@
 import { execFileSync } from "node:child_process";
 
 const REPO_URL = "https://github.com/CedricLee2017/rta-draft-lab";
-const SITE_URL = "https://rta-draft-lab.pages.dev";
+const SITE_URL = "https://rta-draft-lab-live.pages.dev";
+const LEGACY_URL = "https://rta-draft-lab.pages.dev";
 
 const message =
   process.argv.slice(2).join(" ").trim() ||
@@ -44,4 +45,5 @@ run(["push", "origin", branch]);
 console.log(`\nGitHub：${REPO_URL}/tree/${branch}`);
 console.log(`最新 ZIP：${REPO_URL}/archive/refs/heads/${branch}.zip`);
 console.log(`線上網站：${SITE_URL}`);
+console.log(`舊網址轉址：${LEGACY_URL}`);
 console.log("Cloudflare Pages 會在 push 後自動 build（約 1–3 分鐘）。");

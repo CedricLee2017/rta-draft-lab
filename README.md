@@ -1,7 +1,9 @@
 # RTA Draft Lab
 
 魔靈召喚（Sky Arena）RTA 對戰紀錄與 BP 分析。
-**線上使用：<https://rta-draft-lab.pages.dev>**　｜　**原始碼：<https://github.com/CedricLee2017/rta-draft-lab>**　｜　**下載最新版本：<https://github.com/CedricLee2017/rta-draft-lab/archive/refs/heads/main.zip>**
+**線上使用：<https://rta-draft-lab-live.pages.dev>**　｜　**原始碼：<https://github.com/CedricLee2017/rta-draft-lab>**　｜　**下載最新版本：<https://github.com/CedricLee2017/rta-draft-lab/archive/refs/heads/main.zip>**
+
+> 舊網址 <https://rta-draft-lab.pages.dev> 會自動 301 轉到新站 <https://rta-draft-lab-live.pages.dev>。
 
 - **預設玩家：`221145`（xXLaVarXx）** ← 打開網站直接看這位
 - 可以一次抓一段賽季（例如 37–39），再用「顯示」選單只看 38–39 或單一賽季
@@ -377,7 +379,7 @@ npm run deploy
 
 ```bash
 npm run api:deploy          # worker
-npm run deploy:web          # Pages
+npm run deploy:web          # Pages（rta-draft-lab-live；平常 push 會自動部署）
 ```
 
 `web/.env` 的 `VITE_API_BASE` 指向 Worker；換網域時改這裡再重新 build。
@@ -391,7 +393,8 @@ npm run deploy:web          # Pages
 | GitHub 原始碼 | <https://github.com/CedricLee2017/rta-draft-lab> |
 | 最新版本 ZIP | <https://github.com/CedricLee2017/rta-draft-lab/archive/refs/heads/main.zip> |
 | 版本紀錄 | <https://github.com/CedricLee2017/rta-draft-lab/commits/main> |
-| 線上網站 | <https://rta-draft-lab.pages.dev> |
+| 線上網站（自動部署） | <https://rta-draft-lab-live.pages.dev> |
+| 舊網址（301 轉址） | <https://rta-draft-lab.pages.dev> |
 
 ### 平常更新：一行指令
 
@@ -409,9 +412,19 @@ npm run publish -- "這次改了什麼"
 ### push 之後會發生什麼
 
 - GitHub 立即保存原始碼（這就是「最新版本」的來源）
-- Cloudflare Pages 已接上 GitHub：push 到 `main` 會**自動 build `web/` 並部署**
-- 約 1–3 分鐘後 <https://rta-draft-lab.pages.dev> 更新
+- Cloudflare Pages 專案 `rta-draft-lab-live` 已接上 GitHub：push 到 `main` 會**自動 build `web/` 並部署**
+- 約 1–3 分鐘後 <https://rta-draft-lab-live.pages.dev> 更新
+- 舊網址 <https://rta-draft-lab.pages.dev> 會 301 轉到新站
 - 手機 App 若還開到舊版：關掉再開一次
+
+### 下載最新版本
+
+- 直接下載 ZIP：<https://github.com/CedricLee2017/rta-draft-lab/archive/refs/heads/main.zip>
+- 或到 GitHub 專案首頁 → 綠色 **Code** → **Download ZIP**
+- 想看每次改了什麼：<https://github.com/CedricLee2017/rta-draft-lab/commits/main>
+
+> `rta-draft-lab`（舊 Pages 專案）現在只放轉址頁，不要再把完整網站部署到那裡；
+> 完整網站請部署到 `rta-draft-lab-live`（push 會自動處理）。
 
 ### Worker 要另外部署
 
