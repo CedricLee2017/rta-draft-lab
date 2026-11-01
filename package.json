@@ -10,6 +10,7 @@
     "typecheck": "npm --prefix web run typecheck && npm --prefix worker run typecheck",
     "api:dev": "npm --prefix worker run dev",
     "api:deploy": "npm --prefix worker run deploy",
+    "publish": "node tools/publish.mjs",
     "deploy:web": "npm run build && npx wrangler pages deploy web/dist --project-name rta-draft-lab --branch main --commit-dirty=true",
     "deploy": "npm run typecheck && npm run api:deploy && npm run deploy:web"
   }

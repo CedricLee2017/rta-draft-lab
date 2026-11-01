@@ -1,7 +1,7 @@
 # RTA Draft Lab
 
 魔靈召喚（Sky Arena）RTA 對戰紀錄與 BP 分析。
-**線上使用：<https://rta-draft-lab.pages.dev>**　｜　**原始碼：<https://github.com/CedricLee2017/rta-draft-lab>**
+**線上使用：<https://rta-draft-lab.pages.dev>**　｜　**原始碼：<https://github.com/CedricLee2017/rta-draft-lab>**　｜　**下載最新版本：<https://github.com/CedricLee2017/rta-draft-lab/archive/refs/heads/main.zip>**
 
 - **預設玩家：`221145`（xXLaVarXx）** ← 打開網站直接看這位
 - 可以一次抓一段賽季（例如 37–39），再用「顯示」選單只看 38–39 或單一賽季
@@ -186,11 +186,12 @@ rta-draft-lab/
 ├─ tools/
 │  ├─ fetch_player.py     本機抓單一玩家 → payload.json（不耗 Cloudflare 額度）
 │  ├─ make_monster_data.py 從 sw-tick-lab 圖鑑產生前端魔靈清單
-│  └─ make_icons.py       產生 PWA 圖示（Pillow）
+│  ├─ make_icons.py       產生 PWA 圖示（Pillow）
+│  └─ publish.mjs         一鍵 git add / commit / push（npm run publish）
 └─ web/
    ├─ src/App.tsx         篩選、分頁、資料載入（stale-while-revalidate）
    ├─ src/lib/stats.ts    純函式統計（選角 / ban / 對位 / 組合 / 首搶）
-   ├─ src/lib/bp.ts       BP 深度分析（開場 / ban 效益 / 速度線 / 威脅 / 核心）
+   ├─ src/lib/bp.ts       BP 深度分析（開場 / 後手應對 / ban 效益 / 速度線 / 威脅 / 核心）
    ├─ src/lib/api.ts      fetch + IndexedDB 快取
    ├─ src/lib/archive.ts  存檔（列出／匯出／匯入）
    ├─ src/lib/recents.ts  「最近查看」玩家清單（localStorage）
@@ -276,16 +277,29 @@ rta-draft-lab/
 
 ## BP 深度分析
 
-「BP 深度」分頁（在「對局／統計分析」旁邊）把 BP 習慣拆成五個角度，
-**全部跟著目前篩選走**：例如先套用「對手首搶」，再切到 BP 深度，就只分析那 694 場。
+「BP 深度」分頁（在「對局／統計分析」旁邊）把 BP 習慣拆成六個角度，
+**全部跟著目前篩選走**：例如先套用「對手首搶」，再切到 BP 深度，就只分析對手先手的那些場。
 
 | 分頁 | 內容 |
 | --- | --- |
 | 開場 | 首搶／後手勝率、速度隊長使用率；我方首搶的第一手、我方後手的第一手；對手首搶／後手的第一手對應勝率 |
+| 後手應對 | 對手先手時，對手首搶某隻 → 我的第 2、3 手最常怎麼配、佔比與勝率；可點組合看對手接著的 4/5 手、單隻第 2/3 手勝率 |
 | Ban 效益 | 對手出過某隻時「ban vs 不 ban」的勝率差（各 ≥10 場，Δ 為正＝ban 有效）；我的角色被 ban 後勝率 vs 有出戰勝率 |
 | 速度線 | 我方最快 4 隻 vs 對手、前二平均速度差分佈、速度落後時的隊長／輔助配置勝率 |
 | 威脅與核心 | 對手實際出戰的魔靈 → 我的勝率（≥15 場，越低越難打）；有帶／沒帶某隻的勝率差（≥25 場） |
 | 組合 | 同時出戰 ≥15 場的雙人組合，依勝率排序 |
+
+### 後手 2 pick 應對
+
+「後手應對」只取 `firstPick = false`（對手先手）的對局，依對手第一手分組：
+
+- **對手首搶 Oliver → 我的第 2、3 手最常出什麼**：直接看「最常應對」與該組合勝率
+- 點一列展開：2 pick 組合排行（場數、佔比、勝率、與此開局平均差）、單隻第 2/3 手勝率、對手接著的 4/5 手
+- 同時顯示這隻首搶「實際出戰 / 被我 ban」的勝率，避免把 ban 掉與真的打到的場次混在一起
+- 「vs 後手平均」可看出這個對手開局你是打得好還是不好
+- 例：221145・S37–39，對手首搶 Oliver 46 場、我的勝率 63.0%；最常出 Xing Zhe + Sekhmet（19 場、41%、52.6%），≥3 場中勝率最高是 Megumi Fushiguro + Stark（5 場、100%）
+
+> 注意：資料沒有官方逐手順序，`my[0]`、`my[1]` 是陣列順序近似；不過第 2、3 手是同一個連續選秀區塊，**2 pick 組合本身不受順序影響**。樣本小的組合（<3 場）只看趨勢，不要當成因果。
 
 資料來源：`web/src/data/monsters.json` 現在包含 `spd`（基礎速度）、`arch`（Attack／Support／HP／Defense）、
 `sl`（速度隊長技能 %），由 `tools/make_monster_data.py` 從 sw-tick-lab 圖鑑產生。
@@ -367,6 +381,47 @@ npm run deploy:web          # Pages
 ```
 
 `web/.env` 的 `VITE_API_BASE` 指向 Worker；換網域時改這裡再重新 build。
+
+---
+
+## 自動上傳與最新版本
+
+| 用途 | 網址 |
+| --- | --- |
+| GitHub 原始碼 | <https://github.com/CedricLee2017/rta-draft-lab> |
+| 最新版本 ZIP | <https://github.com/CedricLee2017/rta-draft-lab/archive/refs/heads/main.zip> |
+| 版本紀錄 | <https://github.com/CedricLee2017/rta-draft-lab/commits/main> |
+| 線上網站 | <https://rta-draft-lab.pages.dev> |
+
+### 平常更新：一行指令
+
+```powershell
+npm run publish -- "這次改了什麼"
+```
+
+`tools/publish.mjs` 會依序：
+
+1. `git add -A`
+2. 有變更才 `git commit -m "..."`（沒有變更就跳過）
+3. `git push origin main`
+4. 印出 GitHub、最新 ZIP、線上網站網址
+
+### push 之後會發生什麼
+
+- GitHub 立即保存原始碼（這就是「最新版本」的來源）
+- Cloudflare Pages 已接上 GitHub：push 到 `main` 會**自動 build `web/` 並部署**
+- 約 1–3 分鐘後 <https://rta-draft-lab.pages.dev> 更新
+- 手機 App 若還開到舊版：關掉再開一次
+
+### Worker 要另外部署
+
+Cloudflare Pages 只負責前端。改到 `worker/`（API、KV、Browser Rendering）時，還是要手動：
+
+```powershell
+npm run api:deploy
+```
+
+只改前端（`web/`）時，`npm run publish` 就夠了，不需要再跑 `deploy`。
 
 ---
 

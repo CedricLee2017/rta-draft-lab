@@ -5,6 +5,7 @@ import {
   bpSummary,
   coreStats,
   openerStats,
+  secondPickResponses,
   speedStats,
   threatStats,
 } from "../lib/bp";
@@ -13,10 +14,11 @@ import { comboStats } from "../lib/stats";
 import type { RtaMatch } from "../lib/types";
 import { MonsterIcon } from "./MonsterIcon";
 
-type Section = "openings" | "bans" | "speed" | "threats" | "combos";
+type Section = "openings" | "responses" | "bans" | "speed" | "threats" | "combos";
 
 const SECTIONS: { key: Section; label: string }[] = [
   { key: "openings", label: "開場" },
+  { key: "responses", label: "後手應對" },
   { key: "bans", label: "Ban 效益" },
   { key: "speed", label: "速度線" },
   { key: "threats", label: "威脅與核心" },
@@ -43,16 +45,47 @@ function Mon({ id, size = 28 }: { id: number; size?: number }) {
   );
 }
 
+/** 兩隻魔靈的組合（後手 2 pick / 對手 4・5 手） */
+function Pair({ a, b, size = 26 }: { a: number; b: number; size?: number }) {
+  return (
+    <div className="pair">
+      <MonsterIcon id={a} size={size} />
+      <span className="pair-x" aria-hidden>
+        +
+      </span>
+      <MonsterIcon id={b} size={size} />
+      <span className="pair-name">
+        {monsterName(a)} + {monsterName(b)}
+      </span>
+    </div>
+  );
+}
+
+/** 勝率差（pt），正數 = 比基準好 */
+function Delta({ value }: { value: number | null }) {
+  if (value === null) return <span className="na">–</span>;
+  return (
+    <b className={value >= 0 ? "good" : "bad"}>
+      {value >= 0 ? "+" : ""}
+      {value.toFixed(1)}pt
+    </b>
+  );
+}
+
 const pct = (n: number) => `${n.toFixed(1)}%`;
 
 export function BpAnalysis({ matches }: { matches: RtaMatch[] }) {
   const [section, setSection] = useState<Section>("openings");
+  const [openerQuery, setOpenerQuery] = useState("");
+  const [selectedOpener, setSelectedOpener] = useState<number | null>(null);
+  const [selectedPair, setSelectedPair] = useState<{ a: number; b: number } | null>(null);
 
   const summary = useMemo(() => bpSummary(matches), [matches]);
   const myFirstOpeners = useMemo(() => openerStats(matches, "my", true), [matches]);
   const mySecondOpeners = useMemo(() => openerStats(matches, "my", false), [matches]);
   const oppFirstOpeners = useMemo(() => openerStats(matches, "opp", false), [matches]);
   const oppSecondOpeners = useMemo(() => openerStats(matches, "opp", true), [matches]);
+  const responses = useMemo(() => secondPickResponses(matches), [matches]);
   const bans = useMemo(() => banImpact(matches, 8), [matches]);
   const banned = useMemo(() => bannedAgainst(matches, 5), [matches]);
   const speed = useMemo(() => speedStats(matches), [matches]);
@@ -78,6 +111,42 @@ export function BpAnalysis({ matches }: { matches: RtaMatch[] }) {
     .filter((c) => c.games >= 15)
     .sort((a, b) => (b.winRate ?? 0) - (a.winRate ?? 0))
     .slice(0, 12);
+
+  const responseBase = summary.firstSplit.second.winRate;
+  const openerQueryNorm = openerQuery.trim().toLowerCase();
+  const responseRows = openerQueryNorm
+    ? responses.filter(
+        (r) =>
+          monsterName(r.id).toLowerCase().includes(openerQueryNorm) ||
+          String(r.id).includes(openerQueryNorm),
+      )
+    : responses;
+  const currentOpener =
+    responseRows.find((r) => r.id === selectedOpener) ?? responseRows[0] ?? null;
+  const currentPair =
+    currentOpener && selectedPair
+      ? currentOpener.pairs.find(
+          (p) => p.a === selectedPair.a && p.b === selectedPair.b,
+        ) ?? null
+      : null;
+  const followRows = currentPair
+    ? currentPair.followUps
+    : currentOpener?.followUps ?? [];
+  const topPair = currentOpener?.pairs[0] ?? null;
+  const bestPair = currentOpener
+    ? currentOpener.pairs
+        .filter((p) => p.games >= 3)
+        .sort(
+          (a, b) =>
+            (b.winRate ?? -1) - (a.winRate ?? -1) ||
+            b.games - a.games ||
+            a.a - b.a,
+        )[0] ?? null
+    : null;
+  const openerDelta =
+    currentOpener && currentOpener.winRate !== null && responseBase !== null
+      ? currentOpener.winRate - responseBase
+      : null;
 
   return (
     <div className="bp">
@@ -232,6 +301,467 @@ export function BpAnalysis({ matches }: { matches: RtaMatch[] }) {
               </table>
             </div>
           </div>
+        </>
+      )}
+
+      {section === "responses" && (
+        <>
+          {responses.length === 0 ? (
+            <div className="empty-inline">
+              <p>目前沒有「對手先手」的對局</p>
+              <span>
+                把上面的首搶方改成「全部」或「對手首搶」，或載入更多賽季。
+              </span>
+            </div>
+          ) : (
+            <>
+              <div className="split-row">
+                <div className="card split">
+                  <span className="split-k">後手場數</span>
+                  <strong className="split-v">{summary.firstSplit.second.games}</strong>
+                  <span className="split-s">
+                    佔全部{" "}
+                    {summary.total
+                      ? Math.round(
+                          (summary.firstSplit.second.games / summary.total) * 100,
+                        )
+                      : 0}
+                    %
+                  </span>
+                </div>
+                <div className="card split">
+                  <span className="split-k">後手勝率</span>
+                  <strong className="split-v">
+                    {summary.firstSplit.second.winRate === null
+                      ? "–"
+                      : pct(summary.firstSplit.second.winRate)}
+                  </strong>
+                  <span className="split-s">
+                    {summary.firstSplit.second.wins}勝{" "}
+                    {summary.firstSplit.second.losses}負
+                  </span>
+                </div>
+                <div className="card split">
+                  <span className="split-k">對手最常首搶</span>
+                  <strong className="split-v" style={{ fontSize: 18 }}>
+                    {monsterName(responses[0].id)}
+                  </strong>
+                  <span className="split-s">
+                    {responses[0].games} 場・我的勝率{" "}
+                    {responses[0].winRate === null
+                      ? "–"
+                      : pct(responses[0].winRate)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="card-head">
+                  <h3>對手首搶 → 我的 2 pick</h3>
+                  <span className="card-note">
+                    點一列展開；2 pick＝第 2、3 手
+                  </span>
+                  <input
+                    className="text response-search"
+                    value={openerQuery}
+                    onChange={(e) => {
+                      setOpenerQuery(e.target.value);
+                      setSelectedPair(null);
+                    }}
+                    placeholder="搜尋對手首搶…"
+                    aria-label="搜尋對手首搶"
+                  />
+                </div>
+                <div className="tbl-wrap">
+                  <table className="tbl">
+                    <thead>
+                      <tr>
+                        <th scope="col">對手首搶</th>
+                        <th scope="col">場數</th>
+                        <th scope="col">我的勝率</th>
+                        <th scope="col">vs 後手平均</th>
+                        <th scope="col">最常應對（第 2＋3 手）</th>
+                        <th scope="col">佔比</th>
+                        <th scope="col">該組合勝率</th>
+                        <th scope="col" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {responseRows.slice(0, 20).map((r) => {
+                        const top = r.pairs[0];
+                        const active = currentOpener?.id === r.id;
+                        return (
+                          <tr
+                            key={r.id}
+                            className={`selectable${active ? " selected" : ""}`}
+                            onClick={() => {
+                              setSelectedOpener(r.id);
+                              setSelectedPair(null);
+                            }}
+                          >
+                            <td>
+                              <Mon id={r.id} />
+                            </td>
+                            <td>{r.games}</td>
+                            <td>
+                              <Rate value={r.winRate} />
+                            </td>
+                            <td>
+                              <Delta
+                                value={
+                                  responseBase !== null && r.winRate !== null
+                                    ? r.winRate - responseBase
+                                    : null
+                                }
+                              />
+                            </td>
+                            <td>
+                              {top ? (
+                                <Pair a={top.a} b={top.b} />
+                              ) : (
+                                <span className="na">–</span>
+                              )}
+                            </td>
+                            <td>{top ? `${top.share.toFixed(0)}%` : "–"}</td>
+                            <td>
+                              {top ? (
+                                <Rate value={top.winRate} games={top.games} />
+                              ) : (
+                                <span className="na">–</span>
+                              )}
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                className="row-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedOpener(r.id);
+                                  setSelectedPair(null);
+                                }}
+                              >
+                                {active ? "查看中" : "查看"}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {responseRows.length === 0 && (
+                        <tr>
+                          <td colSpan={8} className="tbl-empty">
+                            沒有符合的對手首搶
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="card-foot">
+                  樣本會跟著賽季與上面的篩選變動；想看更穩定的數字，把賽季範圍拉長（例如
+                  37–39）。
+                  {responseRows.length > 20 &&
+                    " 只顯示前 20 個（依場數排序），可用上方搜尋找其他首搶。"}
+                </div>
+              </div>
+
+              {currentOpener && (
+                <div className="card response-detail">
+                  <div className="card-head">
+                    <MonsterIcon id={currentOpener.id} size={28} />
+                    <h3>對手首搶 {monsterName(currentOpener.id)}</h3>
+                    <span className="card-note">
+                      {currentOpener.games} 場・我的勝率{" "}
+                      <Rate value={currentOpener.winRate} />・vs 後手平均{" "}
+                      <Delta value={openerDelta} />
+                    </span>
+                  </div>
+
+                  <div className="response-badges">
+                    <span>
+                      實際出戰 <b>{currentOpener.played}</b> 場・勝率{" "}
+                      <Rate value={currentOpener.playedWinRate} />
+                    </span>
+                    <span>
+                      被我 ban <b>{currentOpener.banned}</b> 場・勝率{" "}
+                      <Rate value={currentOpener.bannedWinRate} />
+                    </span>
+                    {topPair && (
+                      <span>
+                        最常應對{" "}
+                        <b>
+                          {monsterName(topPair.a)} + {monsterName(topPair.b)}
+                        </b>
+                        ・{topPair.games} 場（{topPair.share.toFixed(0)}%）・
+                        <Rate value={topPair.winRate} />
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="response-insight">
+                    <div>
+                      <b>最常出：</b>
+                      {topPair ? (
+                        <>
+                          <Pair a={topPair.a} b={topPair.b} />
+                          {topPair.games} 場（{topPair.share.toFixed(0)}%），勝率{" "}
+                          <Rate value={topPair.winRate} games={topPair.games} />
+                          ，與此開局平均差 <Delta value={topPair.delta} />。
+                        </>
+                      ) : (
+                        <span className="na">沒有可分析的組合</span>
+                      )}
+                    </div>
+                    {bestPair &&
+                      (!topPair ||
+                        bestPair.a !== topPair.a ||
+                        bestPair.b !== topPair.b) && (
+                        <div>
+                          <b>≥3 場中勝率最高：</b>
+                          <Pair a={bestPair.a} b={bestPair.b} />
+                          {bestPair.games} 場，勝率{" "}
+                          <Rate value={bestPair.winRate} games={bestPair.games} />
+                          （<Delta value={bestPair.delta} />）。
+                        </div>
+                      )}
+                    {topPair && topPair.delta !== null && topPair.delta < -5 && (
+                      <div className="response-hint">
+                        最常出的組合低於此開局平均；可以比較下面的替代組合，但樣本小的列不要當成穩定結論。
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="two-col">
+                    <div>
+                      <div className="card-head">
+                        <h3>我的 2 pick 組合</h3>
+                        <span className="card-note">
+                          {currentPair
+                            ? "右邊只會看這組的後續"
+                            : "點一組看對手接著的 4/5 手"}
+                        </span>
+                      </div>
+                      <div className="tbl-wrap">
+                        <table className="tbl">
+                          <thead>
+                            <tr>
+                              <th scope="col">我的 2 pick</th>
+                              <th scope="col">場數</th>
+                              <th scope="col">佔比</th>
+                              <th scope="col">勝率</th>
+                              <th scope="col">與此開局差</th>
+                              <th scope="col" />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {currentOpener.pairs.map((p) => {
+                              const active =
+                                currentPair?.a === p.a && currentPair?.b === p.b;
+                              return (
+                                <tr
+                                  key={`${p.a}:${p.b}`}
+                                  className={`selectable${active ? " selected" : ""}`}
+                                  onClick={() =>
+                                    setSelectedPair(
+                                      active ? null : { a: p.a, b: p.b },
+                                    )
+                                  }
+                                >
+                                  <td>
+                                    <Pair a={p.a} b={p.b} />
+                                  </td>
+                                  <td>{p.games}</td>
+                                  <td>{p.share.toFixed(0)}%</td>
+                                  <td>
+                                    <Rate value={p.winRate} games={p.games} />
+                                  </td>
+                                  <td>
+                                    <Delta value={p.delta} />
+                                  </td>
+                                  <td>
+                                    <button
+                                      type="button"
+                                      className="row-btn"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedPair(
+                                          active ? null : { a: p.a, b: p.b },
+                                        );
+                                      }}
+                                    >
+                                      {active ? "取消" : "後續"}
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {currentOpener.pairs.length === 0 && (
+                              <tr>
+                                <td colSpan={6} className="tbl-empty">
+                                  沒有可分析的 2 pick 組合
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="card-foot">
+                        「2 pick」是同一個第 2/3 手區塊，陣列順序不影響組合；樣本
+                        &lt;3 場的組合只供參考。
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="card-head">
+                        <h3>
+                          {currentPair
+                            ? `當我出 ${monsterName(currentPair.a)} + ${monsterName(currentPair.b)} 時`
+                            : "對手接著的第 4/5 手"}
+                        </h3>
+                        <span className="card-note">
+                          {currentPair
+                            ? `對手接著最常出什麼（這組 ${currentPair.games} 場）`
+                            : `全部 ${currentOpener.games} 場`}
+                        </span>
+                        {currentPair && (
+                          <button
+                            type="button"
+                            className="link"
+                            onClick={() => setSelectedPair(null)}
+                          >
+                            看全部
+                          </button>
+                        )}
+                      </div>
+                      <div className="tbl-wrap">
+                        <table className="tbl">
+                          <thead>
+                            <tr>
+                              <th scope="col">對手 4/5 手</th>
+                              <th scope="col">場數</th>
+                              <th scope="col">佔比</th>
+                              <th scope="col">我的勝率</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {followRows.slice(0, 10).map((f) => (
+                              <tr key={`${f.a}:${f.b}`}>
+                                <td>
+                                  <Pair a={f.a} b={f.b} />
+                                </td>
+                                <td>{f.games}</td>
+                                <td>{f.share.toFixed(0)}%</td>
+                                <td>
+                                  <Rate value={f.winRate} games={f.games} />
+                                </td>
+                              </tr>
+                            ))}
+                            {followRows.length === 0 && (
+                              <tr>
+                                <td colSpan={4} className="tbl-empty">
+                                  這組沒有足夠的後續資料
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                      {followRows.length > 10 && (
+                        <div className="card-foot">
+                          只顯示前 10 種組合（依場數）。
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="two-col" style={{ marginTop: 12 }}>
+                    <div>
+                      <div className="card-head">
+                        <h3>我的第 2 手（單隻）</h3>
+                        <span className="card-note">依陣列順序近似</span>
+                      </div>
+                      <div className="tbl-wrap">
+                        <table className="tbl">
+                          <thead>
+                            <tr>
+                              <th scope="col">魔靈</th>
+                              <th scope="col">場數</th>
+                              <th scope="col">勝率</th>
+                              <th scope="col">與此開局差</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {currentOpener.firstPicks.map((p) => (
+                              <tr key={p.id}>
+                                <td>
+                                  <Mon id={p.id} />
+                                </td>
+                                <td>{p.games}</td>
+                                <td>
+                                  <Rate value={p.winRate} games={p.games} />
+                                </td>
+                                <td>
+                                  <Delta value={p.delta} />
+                                </td>
+                              </tr>
+                            ))}
+                            {currentOpener.firstPicks.length === 0 && (
+                              <tr>
+                                <td colSpan={4} className="tbl-empty">
+                                  沒有資料
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="card-head">
+                        <h3>我的第 3 手（單隻）</h3>
+                        <span className="card-note">依陣列順序近似</span>
+                      </div>
+                      <div className="tbl-wrap">
+                        <table className="tbl">
+                          <thead>
+                            <tr>
+                              <th scope="col">魔靈</th>
+                              <th scope="col">場數</th>
+                              <th scope="col">勝率</th>
+                              <th scope="col">與此開局差</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {currentOpener.secondPicks.map((p) => (
+                              <tr key={p.id}>
+                                <td>
+                                  <Mon id={p.id} />
+                                </td>
+                                <td>{p.games}</td>
+                                <td>
+                                  <Rate value={p.winRate} games={p.games} />
+                                </td>
+                                <td>
+                                  <Delta value={p.delta} />
+                                </td>
+                              </tr>
+                            ))}
+                            {currentOpener.secondPicks.length === 0 && (
+                              <tr>
+                                <td colSpan={4} className="tbl-empty">
+                                  沒有資料
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </>
       )}
 

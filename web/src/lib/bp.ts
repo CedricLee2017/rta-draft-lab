@@ -50,6 +50,223 @@ export function openerStats(
     .sort((a, b) => b.games - a.games);
 }
 
+// ───────────────────────────── 後手 2 pick 應對 ─────────────────────────────
+
+interface PairAcc {
+  a: number;
+  b: number;
+  tally: Tally;
+  /** 這組 2 pick 之後，對手接著的 4/5 手 */
+  follow: Map<string, PairAcc>;
+}
+
+export interface ResponseFollowUpRow extends Tally {
+  a: number;
+  b: number;
+  /** 佔這組 2 pick 的比例（%） */
+  share: number;
+}
+
+export interface ResponsePairRow extends Tally {
+  a: number;
+  b: number;
+  /** 佔此開局的比例（%） */
+  share: number;
+  /** 與此開局整體勝率的差（pt；正 = 這組更好） */
+  delta: number | null;
+  /** 用這組 2 pick 時，對手接著的第 4/5 手 */
+  followUps: ResponseFollowUpRow[];
+}
+
+export interface ResponsePickRow extends Tally {
+  id: number;
+  /** 與此開局整體勝率的差（pt） */
+  delta: number | null;
+}
+
+export interface OpenerResponseRow extends Tally {
+  /** 對手首搶的魔靈 */
+  id: number;
+  /** 對手首搶這隻後，這隻最後被我 ban 的場數 */
+  banned: number;
+  bannedWinRate: number | null;
+  /** 這隻實際出戰的場數 */
+  played: number;
+  playedWinRate: number | null;
+  /** 我的第 2、3 手組合（依場數排序） */
+  pairs: ResponsePairRow[];
+  /** 我的第 2 手（依陣列順序近似） */
+  firstPicks: ResponsePickRow[];
+  /** 我的第 3 手（依陣列順序近似） */
+  secondPicks: ResponsePickRow[];
+  /** 這個開局下，對手接著的第 4/5 手（全部場次） */
+  followUps: ResponseFollowUpRow[];
+}
+
+const diffRate = (a: number | null, b: number | null): number | null =>
+  a !== null && b !== null ? a - b : null;
+
+function bumpTally(map: Map<number, Tally>, id: number, won: boolean | null): void {
+  let t = map.get(id);
+  if (!t) {
+    t = emptyTally();
+    map.set(id, t);
+  }
+  addResult(t, won);
+}
+
+function bumpPair(
+  map: Map<string, PairAcc>,
+  a: number,
+  b: number,
+  won: boolean | null,
+): void {
+  const key = `${a}:${b}`;
+  let e = map.get(key);
+  if (!e) {
+    e = { a, b, tally: emptyTally(), follow: new Map() };
+    map.set(key, e);
+  }
+  addResult(e.tally, won);
+}
+
+function finishFollowUps(
+  map: Map<string, PairAcc>,
+  baseGames: number,
+): ResponseFollowUpRow[] {
+  return [...map.values()]
+    .map(({ a, b, tally }) => {
+      const t = finishTally(tally);
+      return {
+        a,
+        b,
+        ...t,
+        share: baseGames > 0 ? (t.games / baseGames) * 100 : 0,
+      };
+    })
+    .sort(
+      (x, y) =>
+        y.games - x.games ||
+        (y.winRate ?? 0) - (x.winRate ?? 0) ||
+        x.a - y.a ||
+        x.b - y.b,
+    );
+}
+
+/**
+ * 「對手先手 → 我的 2 pick（第 2、3 手）」應對分析。
+ *
+ * 只取 m.firstPick === false 的對局，依對手第一手分組。
+ * 2 pick 組合是「同一個 2/3 手區塊」，即使陣列內順序有誤也不影響組合；
+ * 單隻的第 2/3 手順序則是依陣列順序近似。
+ */
+export function secondPickResponses(matches: RtaMatch[]): OpenerResponseRow[] {
+  const groups = new Map<number, RtaMatch[]>();
+
+  for (const m of matches) {
+    if (m.firstPick) continue;
+    const opener = m.opp[0];
+    if (!opener) continue;
+    const list = groups.get(opener);
+    if (list) list.push(m);
+    else groups.set(opener, [m]);
+  }
+
+  const out: OpenerResponseRow[] = [];
+
+  for (const [id, group] of groups) {
+    const overall = emptyTally();
+    const banned = emptyTally();
+    const played = emptyTally();
+    const pairMap = new Map<string, PairAcc>();
+    const firstMap = new Map<number, Tally>();
+    const secondMap = new Map<number, Tally>();
+    const followMap = new Map<string, PairAcc>();
+
+    for (const m of group) {
+      addResult(overall, m.won);
+      addResult(m.oppBan === id ? banned : played, m.won);
+
+      const first = m.my[0];
+      const second = m.my[1];
+      const followA = m.opp[1];
+      const followB = m.opp[2];
+
+      if (first && second) {
+        bumpPair(pairMap, first, second, m.won);
+        bumpTally(firstMap, first, m.won);
+        bumpTally(secondMap, second, m.won);
+
+        if (followA && followB) {
+          const pair = pairMap.get(`${first}:${second}`);
+          if (pair) bumpPair(pair.follow, followA, followB, m.won);
+        }
+      }
+
+      if (followA && followB) bumpPair(followMap, followA, followB, m.won);
+    }
+
+    const total = finishTally(overall);
+    const base = total.winRate;
+
+    const pairs: ResponsePairRow[] = [...pairMap.values()]
+      .map(({ a, b, tally, follow }) => {
+        const t = finishTally(tally);
+        return {
+          a,
+          b,
+          ...t,
+          share: total.games > 0 ? (t.games / total.games) * 100 : 0,
+          delta: diffRate(t.winRate, base),
+          followUps: finishFollowUps(follow, t.games),
+        };
+      })
+      .sort(
+        (x, y) =>
+          y.games - x.games ||
+          (y.winRate ?? 0) - (x.winRate ?? 0) ||
+          x.a - y.a ||
+          x.b - y.b,
+      );
+
+    const finishPicks = (map: Map<number, Tally>): ResponsePickRow[] =>
+      [...map.entries()]
+        .map(([mid, t]) => {
+          const done = finishTally(t);
+          return { id: mid, ...done, delta: diffRate(done.winRate, base) };
+        })
+        .sort(
+          (x, y) =>
+            y.games - x.games ||
+            (y.winRate ?? 0) - (x.winRate ?? 0) ||
+            x.id - y.id,
+        );
+
+    const bannedDone = finishTally(banned);
+    const playedDone = finishTally(played);
+
+    out.push({
+      id,
+      ...total,
+      banned: bannedDone.games,
+      bannedWinRate: bannedDone.winRate,
+      played: playedDone.games,
+      playedWinRate: playedDone.winRate,
+      pairs,
+      firstPicks: finishPicks(firstMap),
+      secondPicks: finishPicks(secondMap),
+      followUps: finishFollowUps(followMap, total.games),
+    });
+  }
+
+  return out.sort(
+    (a, b) =>
+      b.games - a.games ||
+      (b.winRate ?? 0) - (a.winRate ?? 0) ||
+      a.id - b.id,
+  );
+}
+
 // ───────────────────────────── Ban ─────────────────────────────
 
 export interface BanImpactRow {
