@@ -5,6 +5,7 @@ import { MatchList } from "./components/MatchList";
 import { MonsterIcon } from "./components/MonsterIcon";
 import { MonsterSelect } from "./components/MonsterSelect";
 import { PlayerHeader } from "./components/PlayerHeader";
+import { QrCard } from "./components/QrCard";
 import { StatsPanel } from "./components/StatsPanel";
 import { API_BASE, fetchPlayer, fetchSample, loadCache, saveCache } from "./lib/api";
 import { monsterName } from "./lib/monsters";
@@ -745,6 +746,7 @@ export default function App() {
                 載入示範資料
               </button>
             </div>
+            <QrCard className="hero-qr" size={132} />
             {!API_BASE && (
               <p className="hero-hint">
                 尚未設定 API 位址：可在網址加上 <code>?api=https://你的-worker.workers.dev</code> 後重新載入。

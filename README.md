@@ -9,7 +9,8 @@
 - 可以一次抓一段賽季（例如 37–39），再用「顯示」選單只看 38–39 或單一賽季
 - 每天只自動抓 1 次（cron，給 `221145`）；平常不主動抓，避免用掉免費額度
 - 抓過的資料存在瀏覽器，可「下載存檔／匯入存檔」帶到手機，也能安裝成 App 離線看
-- 「BP 深度」分頁：開場習慣、ban 效益、速度線、對手威脅、核心組合
+- 「BP 深度」分頁：開場習慣、後手 2 pick 應對、ban 效益、速度線、對手威脅、核心組合
+- 首頁有 QR code：手機／平板掃描直接開；上方「▦ 手機開啟」隨時可叫出
 - 額度用完時仍可看已快取的資料（橫幅會標示「顯示快取資料」）
 
 輸入玩家 ID → 雲端自動抓取本季全部對戰 → 選角率、被 ban 率、對位勝率、首搶優勢、雙人組合、對手戰績。
@@ -189,6 +190,7 @@ rta-draft-lab/
 │  ├─ fetch_player.py     本機抓單一玩家 → payload.json（不耗 Cloudflare 額度）
 │  ├─ make_monster_data.py 從 sw-tick-lab 圖鑑產生前端魔靈清單
 │  ├─ make_icons.py       產生 PWA 圖示（Pillow）
+│  ├─ make_qr.py          產生首頁 QR code（web/public/qr-live.svg）
 │  └─ publish.mjs         一鍵 git add / commit / push（npm run publish）
 └─ web/
    ├─ src/App.tsx         篩選、分頁、資料載入（stale-while-revalidate）
@@ -197,10 +199,12 @@ rta-draft-lab/
    ├─ src/lib/api.ts      fetch + IndexedDB 快取
    ├─ src/lib/archive.ts  存檔（列出／匯出／匯入）
    ├─ src/lib/recents.ts  「最近查看」玩家清單（localStorage）
-   ├─ src/components/     對局卡、魔靈選單、統計面板、BP 分析、存檔列
+   ├─ src/lib/site.ts     正式站網址（QR／分享連結）
+   ├─ src/components/     對局卡、魔靈選單、統計面板、BP 分析、QR code、存檔列
    └─ public/
       ├─ manifest.webmanifest  PWA 設定
       ├─ sw.js                service worker（離線開啟）
+      ├─ qr-live.svg         首頁 QR code
       ├─ icons/               App 圖示
       └─ sample-matches.json  示範資料（S39 前 120 場）
 ```
@@ -357,6 +361,24 @@ rta-draft-lab/
 
 > 換版後若手機仍開到舊畫面：關掉 App 再開一次即可（`sw.js` 改版時會自動換新快取）。
 > service worker 只在 production build 註冊，本機 `npm run dev` 不會被快取。
+
+## 首頁 QR code
+
+首頁 hero 與上方工具列都有 QR code，手機／平板掃描後直接開正式站：
+
+- 首頁 hero：`QrCard`（桌機／平板顯示）
+- 工具列：**▦ 手機開啟** → 彈出同一個 QR code（預設玩家載入後仍可用）
+- 手機版會隱藏 QR，避免自己掃自己的螢幕
+
+QR 圖檔是 `web/public/qr-live.svg`，由 `tools/make_qr.py` 產生，**不依賴外部 QR 服務**，離線也能顯示。
+
+換網址時：
+
+```bash
+# 1. 改 web/src/lib/site.ts 的 SITE_URL
+# 2. 重新產生 QR（需要 pip install segno）
+python tools/make_qr.py https://你的新網址
+```
 
 ## 開發與部署
 

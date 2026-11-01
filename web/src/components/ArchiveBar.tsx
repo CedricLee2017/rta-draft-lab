@@ -7,6 +7,7 @@ import {
   totalMatches,
 } from "../lib/archive";
 import type { MatchPayload } from "../lib/types";
+import { QrCard } from "./QrCard";
 
 interface Props {
   payload: MatchPayload | null;
@@ -45,6 +46,7 @@ export function ArchiveBar({ payload, version, onImported, onNotice, onError }: 
   const [installEvent, setInstallEvent] = useState<InstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(isStandalone);
   const [showHelp, setShowHelp] = useState(false);
+  const [showQr, setShowQr] = useState(false);
 
   async function refreshCount() {
     try {
@@ -172,6 +174,15 @@ export function ArchiveBar({ payload, version, onImported, onNotice, onError }: 
             ▣ 安裝 App
           </button>
         )}
+
+        <button
+          type="button"
+          className="btn ghost sm qr-btn"
+          onClick={() => setShowQr((v) => !v)}
+          title="用手機或平板掃描 QR code 開啟"
+        >
+          ▦ 手機開啟
+        </button>
       </div>
 
       <span className="actionbar-note">
@@ -195,6 +206,15 @@ export function ArchiveBar({ payload, version, onImported, onNotice, onError }: 
           </ul>
           {isIOS() && <p>iOS 只支援用 Safari 加到主畫面，Chrome／Firefox 不行。</p>}
           <button type="button" className="link" onClick={() => setShowHelp(false)}>
+            關閉
+          </button>
+        </div>
+      )}
+
+      {showQr && (
+        <div className="qr-help" role="dialog" aria-label="用手機或平板開啟">
+          <QrCard compact size={148} />
+          <button type="button" className="link" onClick={() => setShowQr(false)}>
             關閉
           </button>
         </div>
