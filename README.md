@@ -417,6 +417,9 @@ npm run publish -- "這次改了什麼"
 - 舊網址 <https://rta-draft-lab.pages.dev> 會 301 轉到新站
 - 手機 App 若還開到舊版：關掉再開一次
 
+> 如果你之前把舊網址安裝成手機 App，建議用新網址 <https://rta-draft-lab-live.pages.dev>
+> 重新「加到主畫面」一次；舊 App 會轉到新站，但獨立視窗要用新網址安裝。
+
 ### 下載最新版本
 
 - 直接下載 ZIP：<https://github.com/CedricLee2017/rta-draft-lab/archive/refs/heads/main.zip>
