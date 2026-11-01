@@ -377,8 +377,10 @@ QR 圖檔是 `web/public/qr-live.svg`，由 `tools/make_qr.py` 產生，**不依
 ```bash
 # 1. 改 web/src/lib/site.ts 的 SITE_URL
 # 2. 重新產生 QR（需要 pip install segno）
-python tools/make_qr.py https://你的新網址
+python tools/make_qr.py
 ```
+
+（也可以直接指定網址：`python tools/make_qr.py https://你的新網址`）
 
 ## 開發與部署
 
