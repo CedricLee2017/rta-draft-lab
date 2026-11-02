@@ -13,9 +13,10 @@ import {
   type DraftSide,
   type SimLogEntry,
 } from "../lib/draft-sim";
-import { MONSTERS, monsterName, searchMonsters } from "../lib/monsters";
+import { monsterName } from "../lib/monsters";
 import type { PlayerInfo, RtaMatch } from "../lib/types";
 import { MonsterIcon } from "./MonsterIcon";
+import { MonsterPickerModal } from "./MonsterPicker";
 
 const AI_STYLES: { key: AiStyle; label: string }[] = [
   { key: "habit", label: "照習慣（加權抽樣）" },
@@ -155,9 +156,8 @@ export function DraftSimulator({ matches, player, seasonLabel }: Props) {
   const [aiFirst, setAiFirst] = useState(false);
   const [style, setStyle] = useState<AiStyle>("habit");
   const [draft, dispatch] = useReducer(simReducer, undefined, initialSimState);
-  const [query, setQuery] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const generation = useRef(0);
-  const poolRef = useRef<HTMLDivElement>(null);
 
   // 換邊或換資料時重置；第一次掛載不重置（避免把使用者一開始的點擊洗掉）。
   // generation 讓舊的 AI timer 失效。
@@ -169,7 +169,7 @@ export function DraftSimulator({ matches, player, seasonLabel }: Props) {
     lastResetKey.current = resetKey;
     generation.current++;
     dispatch({ type: "reset" });
-    setQuery("");
+    setPickerOpen(false);
   }, [resetKey]);
 
   const turn = currentSide(draft.picks, aiFirst);
@@ -212,34 +212,18 @@ export function DraftSimulator({ matches, player, seasonLabel }: Props) {
 
   const used = useMemo(() => new Set(draft.picks.map((p) => p.id)), [draft.picks]);
 
-  const defaultPool = useMemo(() => {
-    const counts = new Map<number, number>();
-    for (const [id, n] of model.overall) counts.set(id, (counts.get(id) ?? 0) + n * 2);
-    for (const [id, n] of model.oppOverall) counts.set(id, (counts.get(id) ?? 0) + n);
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1] || a[0] - b[0])
-      .map(([id]) => id);
-  }, [model]);
-
-  const poolIds = useMemo(() => {
-    const q = query.trim();
-    if (q) return searchMonsters(q, 120).map((m) => m.id);
-    const base =
-      defaultPool.length >= 60
-        ? defaultPool
-        : [...new Set([...defaultPool, ...MONSTERS.map((m) => m.id)])];
-    return base.slice(0, 120);
-  }, [defaultPool, query]);
-
-  const poolAvailable = poolIds.filter((id) => !used.has(id));
+  // 不是玩家的回合時，關閉選角視窗
+  useEffect(() => {
+    if (!canUserPick) setPickerOpen(false);
+  }, [canUserPick]);
 
   function resetSim() {
     generation.current++;
     dispatch({ type: "reset" });
-    setQuery("");
+    setPickerOpen(false);
   }
 
-  function handlePick(id: number) {
+  function handlePickerPick(id: number) {
     if (!canUserPick || used.has(id)) return;
     dispatch({
       type: "pick",
@@ -248,7 +232,7 @@ export function DraftSimulator({ matches, player, seasonLabel }: Props) {
       slot: draft.picks.length + 1,
       aiFirst,
     });
-    setQuery("");
+    setPickerOpen(false);
   }
 
   function handleBan(id: number) {
@@ -356,14 +340,9 @@ export function DraftSimulator({ matches, player, seasonLabel }: Props) {
             <button
               type="button"
               className="btn primary sm sim-jump"
-              onClick={() =>
-                poolRef.current?.scrollIntoView({
-                  behavior: "auto",
-                  block: "start",
-                })
-              }
+              onClick={() => setPickerOpen(true)}
             >
-              選角 ↓
+              選擇魔靈
             </button>
           )}
           <DraftOrder
@@ -386,30 +365,22 @@ export function DraftSimulator({ matches, player, seasonLabel }: Props) {
       </div>
 
       <div className="sim-bottom">
-        <div className="card sim-pool" ref={poolRef}>
+        <div className="card sim-pool">
           <div className="card-head">
             <h3>
               {phase === "ban"
                 ? "Ban 階段"
                 : phase === "done"
                   ? "BP 完成"
-                  : canUserPick
-                    ? "選一隻角色"
-                    : "AI 正在選…"}
+                  : "選角"}
             </h3>
             <span className="card-note">
-              {phase === "pick" ? `可用 ${poolAvailable.length} 隻` : ""}
+              {phase === "pick"
+                ? canUserPick
+                  ? `第 ${draft.picks.length + 1} 隻・共 5 隻`
+                  : "AI 正在選…"
+                : ""}
             </span>
-            {phase === "pick" && (
-              <input
-                className="text response-search sim-search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="搜尋角色名稱 / ID…"
-                aria-label="搜尋角色"
-                disabled={!canUserPick}
-              />
-            )}
           </div>
 
           {lastLog && (
@@ -457,24 +428,26 @@ export function DraftSimulator({ matches, player, seasonLabel }: Props) {
                 再來一場
               </button>
             </div>
+          ) : canUserPick ? (
+            <div className="sim-pick-cta">
+              <div>
+                <strong>選擇第 {draft.picks.length + 1} 隻魔靈</strong>
+                <span>
+                  用搜尋、元素、胎生星級與「只顯示已覺醒」快速縮小範圍。
+                </span>
+              </div>
+              <button
+                type="button"
+                className="btn primary"
+                onClick={() => setPickerOpen(true)}
+              >
+                開啟選擇器
+              </button>
+            </div>
           ) : (
-            <div className="sim-grid">
-              {poolAvailable.map((id) => (
-                <button
-                  type="button"
-                  key={id}
-                  className="sim-mon"
-                  onClick={() => handlePick(id)}
-                  disabled={!canUserPick}
-                  title={`選 ${monsterName(id)}`}
-                >
-                  <MonsterIcon id={id} size={38} />
-                  <span className="name">{monsterName(id)}</span>
-                </button>
-              ))}
-              {poolAvailable.length === 0 && (
-                <p className="sim-empty">沒有符合的角色，換個關鍵字試試。</p>
-              )}
+            <div className="sim-waiting">
+              <span className="sim-waiting-dot" aria-hidden />
+              AI 正在選第 {draft.picks.length + 1} 隻…
             </div>
           )}
         </div>
@@ -487,6 +460,18 @@ export function DraftSimulator({ matches, player, seasonLabel }: Props) {
           <LogList log={draft.log} />
         </div>
       </div>
+
+      {pickerOpen && canUserPick && (
+        <MonsterPickerModal
+          title={`選擇第 ${draft.picks.length + 1} 隻魔靈`}
+          used={used}
+          aiCounts={model.overall}
+          oppCounts={model.oppOverall}
+          pickedCount={userPicks.length}
+          onPick={handlePickerPick}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   );
 }
