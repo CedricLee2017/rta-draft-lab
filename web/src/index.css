@@ -2563,6 +2563,32 @@ p {
   margin-left: auto;
 }
 
+.sim-latest {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line-soft);
+  background: rgba(88, 166, 255, 0.05);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.sim-latest b {
+  color: var(--text);
+}
+
+.sim-latest em {
+  flex-basis: 100%;
+  font-style: normal;
+  font-size: 10px;
+  color: var(--muted-2);
+  line-height: 1.4;
+}
+
 .sim-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
@@ -2692,6 +2718,54 @@ p {
 
 .sim-result b {
   color: var(--gold);
+}
+
+.sim-ban-hint {
+  width: 100%;
+}
+
+.sim-ban-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 6px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.sim-ban-mon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 3px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 107, 107, 0.25);
+  background: rgba(255, 107, 107, 0.05);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sim-ban-mon:hover {
+  border-color: var(--red);
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.sim-ban-mon span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9.5px;
+  color: var(--muted);
+}
+
+/* 手機專用：桌面隱藏 */
+.mobile-nav,
+.mobile-filter-toggle,
+.mobile-status,
+.sim-jump {
+  display: none;
 }
 
 /* ─────────────── responsive ─────────────── */
@@ -2931,6 +3005,239 @@ p {
   .sim-search {
     flex: 1 1 100%;
     margin-left: 0;
+  }
+
+  /* 手機：固定底部導覽，上方分頁隱藏 */
+  .app {
+    padding-bottom: calc(68px + env(safe-area-inset-bottom));
+  }
+
+  .topbar {
+    position: static;
+  }
+
+  .player {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .tiles {
+    gap: 7px;
+  }
+
+  .tile {
+    padding: 8px 10px;
+  }
+
+  .tile-v {
+    font-size: 18px;
+  }
+
+  .tile-s {
+    font-size: 10px;
+  }
+
+  .spark {
+    display: none;
+  }
+
+  .tabs {
+    display: none;
+  }
+
+  .mobile-status {
+    display: block;
+    margin: -2px 0 8px;
+    font-size: 11px;
+    color: var(--muted-2);
+  }
+
+  .mobile-filter-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin: 0 0 8px;
+    padding: 11px 12px;
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    background: rgba(16, 24, 40, 0.6);
+    color: var(--text);
+    font-size: 12.5px;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .mobile-filter-toggle em {
+    font-style: normal;
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: rgba(242, 198, 92, 0.12);
+    color: var(--gold);
+  }
+
+  .mobile-filter-toggle .mft-caret {
+    margin-left: auto;
+    color: var(--muted-2);
+  }
+
+  .mobile-filter-toggle.open {
+    border-color: var(--line);
+    background: rgba(22, 32, 58, 0.75);
+  }
+
+  .filters {
+    display: none;
+  }
+
+  .filters.open {
+    display: flex;
+  }
+
+  /* 模擬 BP：手機上進入專注模式，把與 BP 無關的區塊收起來 */
+  .app.sim-view .actionbar,
+  .app.sim-view .recents,
+  .app.sim-view .player,
+  .app.sim-view .mobile-filter-toggle,
+  .app.sim-view .filters,
+  .app.sim-view .condbar,
+  .app.sim-view .summary-bar {
+    display: none;
+  }
+
+  .mobile-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: rgba(7, 10, 18, 0.94);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 -12px 30px -18px #000;
+  }
+
+  .mobile-nav button {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    min-height: 50px;
+    border: 0;
+    border-radius: 10px;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .mobile-nav button.on {
+    color: var(--gold);
+    background: rgba(242, 198, 92, 0.07);
+  }
+
+  .mn-icon {
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .mn-label {
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+
+  .mobile-nav em {
+    position: absolute;
+    top: 4px;
+    left: calc(50% + 6px);
+    display: grid;
+    place-items: center;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    border-radius: 999px;
+    background: var(--panel-2);
+    color: var(--muted);
+    font-style: normal;
+    font-size: 8.5px;
+    font-weight: 700;
+  }
+
+  .mobile-nav button.on em {
+    background: rgba(242, 198, 92, 0.2);
+    color: var(--gold);
+  }
+
+  .btn {
+    min-height: 40px;
+  }
+
+  .btn.sm {
+    min-height: 34px;
+  }
+
+  .seg button {
+    min-height: 36px;
+  }
+
+  /* 模擬器：手機上壓縮隊伍，讓選角池更靠近 */
+  .sim-slot {
+    min-height: 58px;
+    padding: 3px 2px;
+  }
+
+  .sim-slot-name {
+    display: none;
+  }
+
+  .sim-slots {
+    gap: 4px;
+  }
+
+  .sim-team {
+    gap: 6px;
+    padding: 10px;
+  }
+
+  .sim-team-head h3 {
+    font-size: 12px;
+  }
+
+  .sim-turn {
+    gap: 6px;
+    padding: 10px;
+  }
+
+  .sim-turn strong {
+    font-size: 13px;
+  }
+
+  .sim-order span {
+    width: 20px;
+    height: 20px;
+  }
+
+  .sim-ban-grid {
+    grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  }
+
+  .sim-ban-hint {
+    padding: 20px 8px;
+  }
+
+  .sim-jump {
+    display: inline-flex;
+  }
+
+  .sim-pool {
+    scroll-margin-top: 84px;
   }
 }
 

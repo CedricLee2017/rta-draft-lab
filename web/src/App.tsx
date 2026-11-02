@@ -125,6 +125,7 @@ export default function App() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const [tab, setTab] = useState<Tab>("matches");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [result, setResult] = useState<ResultFilter>("all");
   const [firstSide, setFirstSide] = useState<FirstSide>("all");
   const [mySel, setMySel] = useState<number[]>([]);
@@ -501,6 +502,12 @@ export default function App() {
     }
   }
 
+  /** 切換分頁時回到頁首，手機上不用再往上滑 */
+  function changeTab(next: Tab) {
+    setTab(next);
+    window.scrollTo(0, 0);
+  }
+
   const filtered = useMemo(() => {
     let arr = merged;
 
@@ -592,7 +599,7 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className={`app${tab === "sim" ? " sim-view" : ""}`}>
       <header className="topbar">
         <div className="brand">
           <span className="brand-mark" aria-hidden>
@@ -773,16 +780,16 @@ export default function App() {
             />
 
             <nav className="tabs" aria-label="檢視">
-              <button type="button" className={tab === "matches" ? "on" : ""} onClick={() => setTab("matches")}>
+              <button type="button" className={tab === "matches" ? "on" : ""} onClick={() => changeTab("matches")}>
                 對局 <em>{filtered.length}</em>
               </button>
-              <button type="button" className={tab === "stats" ? "on" : ""} onClick={() => setTab("stats")}>
+              <button type="button" className={tab === "stats" ? "on" : ""} onClick={() => changeTab("stats")}>
                 統計分析
               </button>
-              <button type="button" className={tab === "bp" ? "on" : ""} onClick={() => setTab("bp")}>
+              <button type="button" className={tab === "bp" ? "on" : ""} onClick={() => changeTab("bp")}>
                 BP 深度
               </button>
-              <button type="button" className={tab === "sim" ? "on" : ""} onClick={() => setTab("sim")}>
+              <button type="button" className={tab === "sim" ? "on" : ""} onClick={() => changeTab("sim")}>
                 模擬 BP
               </button>
               <span className="tabs-status">
@@ -791,7 +798,28 @@ export default function App() {
               </span>
             </nav>
 
-            <div className="filters">
+            {(refreshing || notice || primary.sample) && (
+              <div className="mobile-status" role="status">
+                {refreshing ? "背景更新中…" : notice}
+                {primary.sample && "・示範資料"}
+              </div>
+            )}
+
+            <button
+              type="button"
+              className={`mobile-filter-toggle${filtersOpen ? " open" : ""}`}
+              onClick={() => setFiltersOpen((v) => !v)}
+              aria-expanded={filtersOpen}
+              aria-controls="filters-panel"
+            >
+              <span>篩選與顯示</span>
+              <em>{filterActive ? "已套用" : "全部"}</em>
+              <span className="mft-caret" aria-hidden>
+                {filtersOpen ? "▴" : "▾"}
+              </span>
+            </button>
+
+            <div id="filters-panel" className={`filters${filtersOpen ? " open" : ""}`}>
               <div className="seg" role="group" aria-label="勝負">
                 {RESULT_LABELS.map((r) => (
                   <button
@@ -979,8 +1007,64 @@ export default function App() {
             ) : tab === "bp" ? (
               <BpAnalysis matches={filtered} />
             ) : (
-              <DraftSimulator matches={merged} player={primary.player} />
+              <DraftSimulator
+                matches={merged}
+                player={primary.player}
+                seasonLabel={seasonLabel}
+              />
             )}
+
+            <nav className="mobile-nav" aria-label="頁面切換">
+              <button
+                type="button"
+                className={tab === "matches" ? "on" : ""}
+                onClick={() => changeTab("matches")}
+                aria-label="對局"
+                aria-current={tab === "matches" ? "page" : undefined}
+              >
+                <span className="mn-icon" aria-hidden>
+                  ⚔
+                </span>
+                <span className="mn-label">對局</span>
+                <em>{filtered.length}</em>
+              </button>
+              <button
+                type="button"
+                className={tab === "stats" ? "on" : ""}
+                onClick={() => changeTab("stats")}
+                aria-label="統計分析"
+                aria-current={tab === "stats" ? "page" : undefined}
+              >
+                <span className="mn-icon" aria-hidden>
+                  ▤
+                </span>
+                <span className="mn-label">統計</span>
+              </button>
+              <button
+                type="button"
+                className={tab === "bp" ? "on" : ""}
+                onClick={() => changeTab("bp")}
+                aria-label="BP 深度"
+                aria-current={tab === "bp" ? "page" : undefined}
+              >
+                <span className="mn-icon" aria-hidden>
+                  ◈
+                </span>
+                <span className="mn-label">BP</span>
+              </button>
+              <button
+                type="button"
+                className={tab === "sim" ? "on" : ""}
+                onClick={() => changeTab("sim")}
+                aria-label="模擬 BP"
+                aria-current={tab === "sim" ? "page" : undefined}
+              >
+                <span className="mn-icon" aria-hidden>
+                  ▷
+                </span>
+                <span className="mn-label">模擬</span>
+              </button>
+            </nav>
           </>
         )}
       </main>

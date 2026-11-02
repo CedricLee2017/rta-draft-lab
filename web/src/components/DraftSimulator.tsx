@@ -147,15 +147,17 @@ function LogList({ log }: { log: SimLogEntry[] }) {
 interface Props {
   matches: RtaMatch[];
   player: PlayerInfo;
+  seasonLabel: string;
 }
 
-export function DraftSimulator({ matches, player }: Props) {
+export function DraftSimulator({ matches, player, seasonLabel }: Props) {
   const model = useMemo(() => buildDraftModel(matches), [matches]);
   const [aiFirst, setAiFirst] = useState(false);
   const [style, setStyle] = useState<AiStyle>("habit");
   const [draft, dispatch] = useReducer(simReducer, undefined, initialSimState);
   const [query, setQuery] = useState("");
   const generation = useRef(0);
+  const poolRef = useRef<HTMLDivElement>(null);
 
   // 換邊或換資料時重置；第一次掛載不重置（避免把使用者一開始的點擊洗掉）。
   // generation 讓舊的 AI timer 失效。
@@ -178,6 +180,7 @@ export function DraftSimulator({ matches, player }: Props) {
 
   const aiPicks = draft.picks.filter((p) => p.side === "ai");
   const userPicks = draft.picks.filter((p) => p.side === "user");
+  const lastLog = draft.log[draft.log.length - 1] ?? null;
 
   // AI 自動選角：每次輪到 AI 就排一個短延遲，連續手會自動接著選
   useEffect(() => {
@@ -276,8 +279,8 @@ export function DraftSimulator({ matches, player }: Props) {
         <div>
           <h2>模擬 BP</h2>
           <p>
-            你當對手，AI 當 <b>{playerLabel(player)}</b>。AI 會依目前顯示賽季的{" "}
-            <b>{model.matches}</b> 場對戰紀錄自動選角／ban。
+            你當對手，AI 當 <b>{playerLabel(player)}</b>。AI 會依目前顯示賽季{" "}
+            <b>{seasonLabel}</b> 的 <b>{model.matches}</b> 場對戰紀錄自動選角／ban。
           </p>
           <p className="sim-note">
             使用目前顯示賽季的全部對局建模，不受上方勝負／魔靈篩選影響。想看更多樣本，把「顯示」拉長（例如 37–39）；想看近期習慣，只留 S39。
@@ -349,6 +352,20 @@ export function DraftSimulator({ matches, player }: Props) {
                 ? "換你 ban"
                 : "雙方陣容出爐"}
           </strong>
+          {phase === "pick" && turn === "user" && (
+            <button
+              type="button"
+              className="btn primary sm sim-jump"
+              onClick={() =>
+                poolRef.current?.scrollIntoView({
+                  behavior: "auto",
+                  block: "start",
+                })
+              }
+            >
+              選角 ↓
+            </button>
+          )}
           <DraftOrder
             picks={draft.picks}
             aiFirst={aiFirst}
@@ -369,7 +386,7 @@ export function DraftSimulator({ matches, player }: Props) {
       </div>
 
       <div className="sim-bottom">
-        <div className="card sim-pool">
+        <div className="card sim-pool" ref={poolRef}>
           <div className="card-head">
             <h3>
               {phase === "ban"
@@ -395,10 +412,38 @@ export function DraftSimulator({ matches, player }: Props) {
             )}
           </div>
 
+          {lastLog && (
+            <div className="sim-latest">
+              <span className={`sim-badge ${lastLog.side}`}>
+                {lastLog.side === "ai" ? "AI" : "你"}
+              </span>
+              <span>
+                {lastLog.action === "pick"
+                  ? `第 ${lastLog.slot} 手選了 `
+                  : "ban 了 "}
+                <b>{monsterName(lastLog.id)}</b>
+              </span>
+              {lastLog.note && <em>{lastLog.note}</em>}
+            </div>
+          )}
+
           {phase === "ban" ? (
             <div className="sim-ban-hint">
               <strong>請 ban 掉 AI 的一隻</strong>
-              <span>點左邊 AI 隊伍中的魔靈；AI 也會同時 ban 你的一隻。</span>
+              <span>點下面其中一隻；AI 也會同時 ban 你的一隻。</span>
+              <div className="sim-ban-grid">
+                {aiPicks.map((p) => (
+                  <button
+                    type="button"
+                    key={p.id}
+                    className="sim-ban-mon"
+                    onClick={() => handleBan(p.id)}
+                  >
+                    <MonsterIcon id={p.id} size={38} />
+                    <span>{monsterName(p.id)}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           ) : phase === "done" ? (
             <div className="sim-result">
