@@ -157,11 +157,18 @@ export function DraftSimulator({ matches, player }: Props) {
   const [query, setQuery] = useState("");
   const generation = useRef(0);
 
-  // 換邊或換資料時重置；generation 讓舊的 AI timer 失效
+  // 換邊或換資料時重置；第一次掛載不重置（避免把使用者一開始的點擊洗掉）。
+  // generation 讓舊的 AI timer 失效。
+  const resetKey = `${aiFirst}:${matches.length}:${matches[0]?.battleId ?? 0}:${matches[matches.length - 1]?.battleId ?? 0}`;
+  const lastResetKey = useRef(resetKey);
+
   useEffect(() => {
+    if (lastResetKey.current === resetKey) return;
+    lastResetKey.current = resetKey;
     generation.current++;
     dispatch({ type: "reset" });
-  }, [aiFirst, model]);
+    setQuery("");
+  }, [resetKey]);
 
   const turn = currentSide(draft.picks, aiFirst);
   const phase: "pick" | "ban" | "done" =
