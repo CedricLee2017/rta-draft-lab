@@ -23,7 +23,7 @@ export function MonsterIcon({ id, size = 40, banned = false, leader = false, cla
   };
 
   return (
-    <div
+    <span
       className={`mon ${el?.cls ?? ""} ${banned ? "is-banned" : ""} ${className}`}
       style={style}
       title={m ? `${m.name}${banned ? "（被 ban）" : ""}${leader ? "（隊長）" : ""}` : `#${id}`}
@@ -49,6 +49,6 @@ export function MonsterIcon({ id, size = 40, banned = false, leader = false, cla
           L
         </span>
       )}
-    </div>
+    </span>
   );
 }
