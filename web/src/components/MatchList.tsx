@@ -137,6 +137,8 @@ function MatchCard({ m, me, showSeason }: { m: RtaMatch; me: PlayerInfo; showSea
       </div>
 
       <div className="battle-side mine">
+        <span className="battle-side-tag">我方</span>
+
         <div className="battle-who">
           <Avatar src={mineImage} name={mineName} />
           <div className="battle-id">
@@ -161,13 +163,7 @@ function MatchCard({ m, me, showSeason }: { m: RtaMatch; me: PlayerInfo; showSea
       </div>
 
       <div className="battle-side theirs">
-        <Team
-          ids={m.opp}
-          ban={m.oppBan}
-          numbers={draftNumbers(!m.firstPick)}
-          first={!m.firstPick}
-          label="對手選角"
-        />
+        <span className="battle-side-tag">對手</span>
 
         <div className="battle-who">
           <Avatar src={m.oppImage} name={m.oppName || "對手"} />
@@ -178,6 +174,14 @@ function MatchCard({ m, me, showSeason }: { m: RtaMatch; me: PlayerInfo; showSea
             <span className="battle-score">{m.oppScore ?? "–"}</span>
           </div>
         </div>
+
+        <Team
+          ids={m.opp}
+          ban={m.oppBan}
+          numbers={draftNumbers(!m.firstPick)}
+          first={!m.firstPick}
+          label="對手選角"
+        />
       </div>
     </article>
   );

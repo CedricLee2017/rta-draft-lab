@@ -1848,7 +1848,36 @@ p {
 
 .battle-side.theirs {
   flex: 1 1 auto;
+  flex-direction: row-reverse;
   justify-content: flex-start;
+}
+
+/* 桌機用左右對稱（我方名字靠左、對手名字靠右），手機才顯示「我方／對手」標籤 */
+.battle-side-tag {
+  display: none;
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: rgba(28, 40, 68, 0.6);
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.battle-side.mine .battle-side-tag {
+  color: var(--gold);
+  border-color: rgba(242, 198, 92, 0.5);
+  background: rgba(242, 198, 92, 0.1);
+}
+
+.battle-side.theirs .battle-side-tag {
+  color: #a9ccff;
+  border-color: rgba(88, 166, 255, 0.4);
+  background: rgba(88, 166, 255, 0.08);
 }
 
 .battle-who {
@@ -3415,7 +3444,27 @@ p {
   .battle-side.mine,
   .battle-side.theirs {
     flex: 1 1 100%;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    justify-content: initial;
+    gap: 8px;
+  }
+
+  .battle-side-tag {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .battle-side .battle-who {
+    width: auto;
+    flex: none;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .battle-side .battle-id {
+    align-items: flex-start;
   }
 
   .battle-name {
