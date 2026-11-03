@@ -387,6 +387,136 @@ function Opponents({ matches }: { matches: RtaMatch[] }) {
   );
 }
 
+function PlayerBreakdown({ matches }: { matches: RtaMatch[] }) {
+  const rows = useMemo(() => {
+    interface Acc {
+      id: number;
+      name: string;
+      games: number;
+      wins: number;
+      losses: number;
+      first: number;
+      picks: Map<number, number>;
+      bans: Map<number, number>;
+    }
+    const acc = new Map<number, Acc>();
+    const bump = (map: Map<number, number>, id: number) => {
+      if (!id) return;
+      map.set(id, (map.get(id) ?? 0) + 1);
+    };
+
+    for (const m of matches) {
+      if (m.ownerId === undefined) continue;
+      let e = acc.get(m.ownerId);
+      if (!e) {
+        e = {
+          id: m.ownerId,
+          name: m.ownerName || `#${m.ownerId}`,
+          games: 0,
+          wins: 0,
+          losses: 0,
+          first: 0,
+          picks: new Map(),
+          bans: new Map(),
+        };
+        acc.set(m.ownerId, e);
+      }
+      e.games++;
+      if (m.won === true) e.wins++;
+      else if (m.won === false) e.losses++;
+      if (m.firstPick) e.first++;
+      bump(e.picks, m.my[0]);
+      bump(e.bans, m.oppBan);
+    }
+
+    const top = (map: Map<number, number>): { id: number; n: number } | null => {
+      let best: { id: number; n: number } | null = null;
+      for (const [id, n] of map) if (!best || n > best.n) best = { id, n };
+      return best;
+    };
+
+    return [...acc.values()]
+      .map((e) => ({
+        id: e.id,
+        name: e.name,
+        games: e.games,
+        winRate: e.wins + e.losses ? (e.wins / (e.wins + e.losses)) * 100 : null,
+        firstRate: e.games ? (e.first / e.games) * 100 : 0,
+        firstPick: top(e.picks),
+        ban: top(e.bans),
+      }))
+      .sort((a, b) => b.games - a.games);
+  }, [matches]);
+
+  if (rows.length < 2) return null;
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h3>各玩家習慣</h3>
+        <span className="card-note">合併前分開看：首選與 ban 的偏好</span>
+      </div>
+      <div className="tbl-wrap">
+        <table className="tbl">
+          <thead>
+            <tr>
+              <th scope="col">玩家</th>
+              <th scope="col">場數</th>
+              <th scope="col">勝率</th>
+              <th scope="col">首搶率</th>
+              <th scope="col">最常首選</th>
+              <th scope="col">最常 ban</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td>
+                  <div className="tbl-mon">
+                    <span className="opp-name">{r.name}</span>
+                    <em className="sub">#{r.id}</em>
+                  </div>
+                </td>
+                <td>{r.games}</td>
+                <td>
+                  <Rate value={r.winRate} />
+                </td>
+                <td>{r.firstRate.toFixed(0)}%</td>
+                <td>
+                  {r.firstPick ? (
+                    <div className="tbl-mon">
+                      <MonsterIcon id={r.firstPick.id} size={28} />
+                      <span>{monsterName(r.firstPick.id)}</span>
+                      <em className="sub">{r.firstPick.n}×</em>
+                    </div>
+                  ) : (
+                    "–"
+                  )}
+                </td>
+                <td>
+                  {r.ban ? (
+                    <div className="tbl-mon">
+                      <MonsterIcon id={r.ban.id} size={28} banned />
+                      <span>{monsterName(r.ban.id)}</span>
+                      <em className="sub">{r.ban.n}×</em>
+                    </div>
+                  ) : (
+                    "–"
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="card-foot">
+        「最常首選」= 該玩家自己的第 1 手；「最常 ban」= 他從對手 5 隻中 ban 掉的那隻。
+        合併時每場都以紀錄主人的視角計算。
+      </p>
+    </div>
+  );
+}
+
 export function StatsPanel({ matches, tally }: { matches: RtaMatch[]; tally: Tally }) {
   const [section, setSection] = useState<Section>("monsters");
 
@@ -408,6 +538,8 @@ export function StatsPanel({ matches, tally }: { matches: RtaMatch[]; tally: Tal
 
   return (
     <div className="stats">
+      <PlayerBreakdown matches={matches} />
+
       <nav className="subtabs" aria-label="統計分類">
         {SECTIONS.map((s) => (
           <button

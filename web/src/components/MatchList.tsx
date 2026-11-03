@@ -120,6 +120,9 @@ function Team({ ids, ban, numbers, first, label }: TeamProps) {
 function MatchCard({ m, me, showSeason }: { m: RtaMatch; me: PlayerInfo; showSeason: boolean }) {
   const r = resultOf(m);
   const resultText = r === "win" ? "勝利" : r === "lose" ? "敗北" : "和局";
+  // 合併多位玩家時，每張卡都顯示「這場紀錄屬於誰」
+  const mineName = m.ownerName || me.username || `#${m.ownerId ?? me.id}`;
+  const mineImage = m.myImage || (m.ownerId && m.ownerId !== me.id ? undefined : me.image);
 
   return (
     <article className={`battle ${r}`}>
@@ -135,10 +138,10 @@ function MatchCard({ m, me, showSeason }: { m: RtaMatch; me: PlayerInfo; showSea
 
       <div className="battle-side mine">
         <div className="battle-who">
-          <Avatar src={m.myImage || me.image} name={me.username} />
+          <Avatar src={mineImage} name={mineName} />
           <div className="battle-id">
-            <b className="battle-name" title={me.username}>
-              {me.username || `#${me.id}`}
+            <b className="battle-name" title={mineName}>
+              {mineName}
             </b>
             <span className="battle-score">{m.myScore ?? "–"}</span>
           </div>
@@ -208,7 +211,12 @@ export function MatchList({ matches, page, onPage, me, showSeason = false }: Pro
     <div className="matchlist">
       <div className="battle-grid">
         {slice.map((m) => (
-          <MatchCard key={m.battleId} m={m} me={me} showSeason={showSeason} />
+          <MatchCard
+            key={`${m.ownerId ?? "x"}:${m.battleId}:${m.season ?? ""}`}
+            m={m}
+            me={me}
+            showSeason={showSeason}
+          />
         ))}
       </div>
 

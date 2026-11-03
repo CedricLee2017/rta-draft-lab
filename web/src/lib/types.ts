@@ -31,6 +31,9 @@ export interface RtaMatch {
   oppImage?: string;
   /** 合併多賽季時由前端標上（存檔裡沒有這個欄位） */
   season?: number;
+  /** 合併多位玩家時由前端標上：這筆紀錄屬於哪位玩家 */
+  ownerId?: number;
+  ownerName?: string;
 }
 
 export interface DailyStat {

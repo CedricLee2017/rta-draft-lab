@@ -5,18 +5,23 @@
 
 > 舊網址 <https://rta-draft-lab.pages.dev> 會自動 301 轉到新站 <https://rta-draft-lab-live.pages.dev>。
 
-- **預設玩家：`221145`（xXLaVarXx）** ← 打開網站直接看這位
+- **預設玩家：`221145`（xXLaVarXx）** ← 打開網站直接看這位（本機已有存檔時）
 - 可以一次抓一段賽季（例如 37–39），再用「顯示」選單只看 38–39 或單一賽季
-- 每天只自動抓 1 次（cron，給 `221145`）；平常不主動抓，避免用掉免費額度
+- **完全不會自動抓取**：開網站只讀這台裝置的存檔；要抓資料請自己按按鈕
+  - **讀取雲端**：只讀 Worker 的 KV 快取，不開瀏覽器、不消耗每日額度
+  - **線上抓取**：真的開雲端瀏覽器抓最新資料（會用掉額度）
+  - **只看本機**：只讀瀏覽器存檔，完全連不到網路
+- 抓過的玩家會進入「玩家名單」，**勾選其中幾位就能合併分析**（例如抓了 5 位，只勾 2 位）
 - 抓過的資料存在瀏覽器，可「下載存檔／匯入存檔」帶到手機，也能安裝成 App 離線看
 - 「BP 深度」分頁：開場習慣、後手 2 pick 應對、ban 效益、速度線、對手威脅、核心組合
-- 「模擬 BP」分頁：你當對手，AI 依目前賽季的紀錄自動選角／ban
+- 「統計分析 → 各玩家習慣」：合併前分開看每位玩家的首選、ban 偏好與勝率
+- 「模擬 BP」分頁：你當對手，AI 依目前勾選玩家的紀錄自動選角／ban
 - 首頁有 QR code：手機／平板掃描直接開；上方「▦ 手機開啟」隨時可叫出
 - 額度用完時仍可看已快取的資料（橫幅會標示「顯示快取資料」）
 
-輸入玩家 ID → 雲端自動抓取本季全部對戰 → 選角率、被 ban 率、對位勝率、首搶優勢、雙人組合、對手戰績。
+輸入玩家 ID → 按「讀取雲端」或「線上抓取」→ 選角率、被 ban 率、對位勝率、首搶優勢、雙人組合、對手戰績。
 資料在瀏覽器端分析，帳號資料不上傳；對戰紀錄快取在 IndexedDB，回訪幾乎零等待。
-找過的玩家會自動記在「最近查看」清單（存在瀏覽器 localStorage），下次點一下就能切回去。
+找過的玩家會自動記在「玩家名單」（存在瀏覽器 IndexedDB），下次開啟直接勾選就能切回去。
 
 ---
 
@@ -24,12 +29,12 @@
 
 ```
 瀏覽器（Pages 靜態 SPA）
-   │  1. IndexedDB 有資料 → 先畫（0 網路請求）
-   │  2. 超過 60 分鐘 → 背景呼叫 Worker 更新
-   │  3. 最近查看清單 → localStorage（rta:recents）
+   │  1. 開啟時只讀 IndexedDB／localStorage，0 網路請求
+   │  2. 按「讀取雲端」→ Worker 只回 KV（不開瀏覽器）
+   │  3. 按「線上抓取」→ Worker 才開瀏覽器抓新資料
    ▼
 Worker  rta-draft-api
-   │  KV 快取 14 天；60 分鐘內直接回（約 200–280ms / 136KB）
+   │  KV 快取；?cache=1 只讀快取、?refresh=1 才強制重抓
    ▼
 Cloudflare Browser Rendering（雲端 Chrome）
    │  首次整季 limit=1000（約 3.7 秒）；之後只抓最新 50 筆再合併（約 1.8 秒）
@@ -97,12 +102,13 @@ lucksack 的欄位命名是「從該玩家的視角」：
 ## API
 
 ```
-GET /api/player?player=174018&season=39[&full=1][&refresh=1]
+GET /api/player?player=174018&season=39[&cache=1][&full=1][&refresh=1]
 GET /api/health[?browser=1]
 ```
 
+- `cache=1`：**只讀 KV，絕對不開瀏覽器**（沒有資料就回 404）→ 前端「讀取雲端」用這個，不消耗額度
 - `full=1`：忽略增量基底，整季重抓
-- `refresh=1`：忽略 60 分鐘新鮮度，強制重新抓取（仍會用 KV 舊資料當增量基底）
+- `refresh=1`：忽略快取，強制開瀏覽器重新抓取（仍會用 KV 舊資料當增量基底）→ 前端「線上抓取」用這個
 - 抓取失敗但有舊資料時，回舊資料並附 `stale: true` + `warning`
 - 多賽季由前端**逐季**呼叫這支 API（Worker 不需要改），每季各自快取在 KV
 - 已結束的賽季會回 `sealed: true`：Worker 不再重抓、KV 存一年，前端有本機存檔就不再連網
@@ -127,36 +133,53 @@ GET /api/health[?browser=1]
 
 ## 抓取策略（重要）
 
-- **平常不主動抓**：只有以下三種情況會開瀏覽器
-  1. 每日 cron 預熱 `WARM_PLAYERS`（目前只有 `221145:39`）
-  2. 你要看的玩家／賽季在 KV 裡沒有資料，或資料超過 60 分鐘
-  3. 你按「強制更新」
+- **完全沒有自動抓取**：Worker 的每日 cron 已移除，前端開啟時也不會連網。
+- 前端三個按鈕的差別：
+
+| 按鈕 | 行為 | 會不會用額度 |
+| --- | --- | --- |
+| **讀取雲端** | `GET /api/player?cache=1`，只讀 Worker 的 KV | 不會 |
+| **線上抓取** | `GET /api/player?refresh=1`，開雲端瀏覽器抓最新資料 | **會**（10 分鐘／天） |
+| **只看本機** | 只讀 IndexedDB，完全不連網 | 不會 |
+
 - 抓多個賽季時是**逐季**請求（S39 → S38 → S37），前一個完成才抓下一個，
   避免同時開多個瀏覽器撞 429；KV 已新鮮的賽季不會再開瀏覽器。
 - **額度是 10 分鐘／天，UTC 00:00（台灣 08:00）重置**，用完就只回快取資料。
 - 額度用完時：已抓過的玩家照常看到（黃色「顯示快取資料」橫幅會寫資料幾分鐘前），
   沒抓過的玩家會顯示「今日額度已用完」，不會卡住或空白。
-- 想省額度：不要連續點「強制更新」；一天看 1–2 次就好。
+- 想省額度：優先用「讀取雲端」；只有真的需要最新資料才按「線上抓取」。
+
+## 玩家名單與合併分析
+
+「玩家名單」會列出這台裝置抓過的所有玩家（從 IndexedDB 還原，0 網路請求）：
+
+- 勾選 1 位 → 一般單人分析
+- 勾選 2 位以上 → **合併分析**：對局、選角率、被 ban 率、對位、BP 深度、模擬 BP 都以勾選的玩家為準
+- 「全選／全不選」快速切換；勾選結果存在 `localStorage["rta:selectedPlayers"]`，下次開啟沿用
+- 合併時每一場都保留「紀錄主人」的視角：`my` = 該玩家自己的 5 隻、`myBan` = 他被對手 ban 的那隻、
+  `oppBan` = 他 ban 掉對手的那隻。所以「統計分析 → 各玩家習慣」可以分開看誰愛首選什麼、愛 ban 什麼。
+- 注意：如果勾選的兩位玩家彼此對戰過，同一場會以雙方視角各算一次（等於兩邊各自的紀錄都保留）。
 
 ## 自己補資料（不消耗 Cloudflare 額度）
 
-額度用完又急著看某位玩家時，可以在自己電腦上抓一次再寫進 KV，
-**完全不會用到 Browser Rendering 的分鐘數**。
+想在網站上看到某位玩家，但不想用掉 Browser Rendering 分鐘數時，
+可以在自己電腦上抓一次再寫進 KV，之後前端按「讀取雲端」就能看到。
 
 ```bash
 # 1. 安裝依賴（只需一次）
 pip install curl_cffi
 
 # 2. 抓資料（在 rta-draft-lab 目錄）
-python tools/fetch_player.py 221145 39
+python tools/fetch_player.py 221145 39 --out payload.json
 #    → 產生 payload.json，並印出 KV key（m:221145:39）
 
-# 3. 寫進 KV（14 天，TTL 1209600 秒）
+# 3. 寫進 KV（30 天，TTL 2592000 秒）
 npx wrangler kv key put --namespace-id 47c4f3e6931c4992b8a743cbdb8aff56 \
-    --remote "m:221145:39" --path payload.json --ttl 1209600
+    --remote "m:221145:39" --path payload.json --ttl 2592000
 ```
 
-寫完後重新整理網站就會看到新資料（Worker 60 分鐘內直接回 KV，不會再開瀏覽器）。
+寫完後在網站輸入玩家 ID → 按「讀取雲端」就會立刻看到（`cache=1` 不會開瀏覽器）。
+之後資料也會存進瀏覽器，接下來用「只看本機」或直接開啟網站都行。
 
 回應：
 
@@ -185,8 +208,8 @@ npx wrangler kv key put --namespace-id 47c4f3e6931c4992b8a743cbdb8aff56 \
 ```
 rta-draft-lab/
 ├─ worker/
-│  ├─ src/index.ts        API、KV 快取、Browser Rendering、CORS、cron 預熱
-│  └─ wrangler.toml       [browser] binding + KV + 每日 cron
+│  ├─ src/index.ts        API、KV 快取、Browser Rendering、CORS、cache=1 唯讀模式
+│  └─ wrangler.toml       [browser] binding + KV（無 cron，不自動抓）
 ├─ tools/
 │  ├─ fetch_player.py     本機抓單一玩家 → payload.json（不耗 Cloudflare 額度）
 │  ├─ make_monster_data.py 從 sw-tick-lab 圖鑑產生前端魔靈清單
@@ -194,15 +217,15 @@ rta-draft-lab/
 │  ├─ make_qr.py          產生首頁 QR code（web/public/qr-live.svg）
 │  └─ publish.mjs         一鍵 git add / commit / push（npm run publish）
 └─ web/
-   ├─ src/App.tsx         篩選、分頁、資料載入（stale-while-revalidate）
+   ├─ src/App.tsx         玩家名單、勾選合併、篩選、分頁、資料載入（只讀本機／讀取雲端／線上抓取）
    ├─ src/lib/stats.ts    純函式統計（選角 / ban / 對位 / 組合 / 首搶）
    ├─ src/lib/bp.ts       BP 深度分析（開場 / 後手應對 / ban 效益 / 速度線 / 威脅 / 核心）
    ├─ src/lib/draft-sim.ts BP 模擬器（歷史選角模型 / 加權抽樣 / ban 模型 / 狀態機）
-   ├─ src/lib/api.ts      fetch + IndexedDB 快取
+   ├─ src/lib/api.ts      fetch + IndexedDB 快取（cacheOnly 對應 ?cache=1）
    ├─ src/lib/archive.ts  存檔（列出／匯出／匯入）
-   ├─ src/lib/recents.ts  「最近查看」玩家清單（localStorage）
    ├─ src/lib/site.ts     正式站網址（QR／分享連結）
-   ├─ src/components/     對局卡、魔靈選單、魔靈選擇器、統計面板、BP 分析、BP 模擬器、QR code、存檔列
+   ├─ src/components/     對局卡、玩家名單（RosterBar）、合併摘要（MultiHeader）、
+   │                      統計面板、BP 分析、BP 模擬器、QR code、存檔列
    └─ public/
       ├─ manifest.webmanifest  PWA 設定
       ├─ sw.js                service worker（離線開啟）
@@ -214,24 +237,23 @@ rta-draft-lab/
 ## 預設玩家
 
 - 前端：`web/src/App.tsx` 的 `DEFAULT_PLAYER`（目前 **221145**）
-- 每日預熱：`worker/wrangler.toml` 的 `WARM_PLAYERS`（目前 `"221145:39"`）
+- **每日預熱已移除**：`worker/wrangler.toml` 不再有 `WARM_PLAYERS` 或 cron。
+  要補資料請用 `tools/fetch_player.py` 本機抓取再寫進 KV（見上一節）。
 - 使用者自己切換過的玩家會存在 `localStorage["rta:player"]`；
   換 `DEFAULT_PLAYER` 時會**自動遷移一次**（`rta:defaultPlayer` 版本標記），
   舊的預設不會一直黏著。
+- 勾選中的玩家存在 `localStorage["rta:selectedPlayers"]`。
 
-要再加第二位常看的玩家：`WARM_PLAYERS = "221145:39,123456:39"`（每日多花約 4 秒額度）。
+## 玩家名單
 
-## 最近查看
-
-每次成功載入（含從 IndexedDB 快取還原）就會把該玩家記進清單：
-
-- 存在 `localStorage["rta:recents"]`，最多 12 筆，同一玩家只留一筆（記最後看的賽季）
-- 顯示在內容區最上方，點一下即切換（會一併更新玩家 ID / 賽季輸入框與 `localStorage`）
-- 右側 `×` 可單筆移除；不會同步到其他裝置，也不含任何帳號資料
+- 開啟網站時從 IndexedDB 還原所有抓過的玩家，顯示名稱、ID、賽季範圍、勝率與場數
+- 點卡片 = 勾選／取消勾選；「全選／全不選」一次切換
+- 勾選 2 位以上就是合併分析；勾 0 位會提示先選玩家，不會偷偷把全部算進去
+- 名單順序依「最後抓取時間」由新到舊
 
 ## 多賽季
 
-上方「賽季範圍」可以填一段（例如 `37 – 39`），按載入後會**逐季**抓取（一次一個請求，
+上方「賽季範圍」可以填一段（例如 `37 – 39`），按「讀取雲端」或「線上抓取」後會**逐季**請求（一次一個請求，
 避免同時開多個瀏覽器撞 429），每一季各自存進 KV 與瀏覽器。
 
 抓到之後，「顯示」選單可以只看其中一段或單一賽季：
@@ -504,19 +526,19 @@ npm run api:deploy
 
 | 資源 | 免費額度 | 這個站的用量 |
 | --- | --- | --- |
-| Browser Rendering | 10 分鐘／天（以 session 存活時間計） | 每日 cron 1 次 ≈ 20 秒；手動瀏覽再 0–2 次 |
+| Browser Rendering | 10 分鐘／天（以 session 存活時間計） | **只有按「線上抓取」才會用**；平常讀本機／KV 為 0 |
 | Workers | 100,000 請求／天 | 個位數 |
 | KV | 100,000 讀／天、1 GB | 個位數 |
 
-每日 cron 只預熱 `WARM_PLAYERS` 清單（`worker/wrangler.toml`，目前 `221145:39`），大約 4 秒瀏覽器時間。
+沒有 cron、沒有背景更新；「讀取雲端」只讀 KV（約 0.1–0.3 秒），不會開瀏覽器。
 額度接近上限（570 秒）時 Worker 會自動停抓、只回 KV，不會把剩下的額度撞成 429。
 真的需要更多：Workers Paid（US$5/月）含更多 Browser Rendering 分鐘。
 
 ## 換賽季
 
 1. 前端預設賽季在 `web/src/App.tsx` 的 `DEFAULT_SEASON`（目前 39）。
-2. `worker/wrangler.toml` 的 `WARM_PLAYERS` 改成新賽季。
-3. 重新 `npm run deploy`。
+2. 用 `tools/fetch_player.py` 抓新賽季並寫進 KV（見「自己補資料」）。
+3. 重新 `npm run deploy`（前端）。
 
 使用者也可以直接在網頁上改賽季範圍，選擇會存在 localStorage（`rta:seasonFrom` / `rta:seasonTo`）。
 新訪客預設只抓當前賽季；想看舊賽季把「賽季範圍」改成 `37 – 39` 即可，之後會自動沿用。

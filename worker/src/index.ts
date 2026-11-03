@@ -10,9 +10,11 @@
  *   雲端 Chrome 是唯一能在 Cloudflare 上取得資料的方式。
  *
  * 快取策略：
- *   KV（14 天）→ 30 分鐘內直接回 → 否則開一次瀏覽器做增量抓取。
+ *   KV（14 天）→ ?cache=1 直接回 KV（永不開瀏覽器）
+ *   一般請求：60 分鐘內直接回 KV，否則開一次瀏覽器做增量抓取
+ *   前端預設不自動抓取；只有使用者按「線上抓取」（refresh=1）才會消耗額度。
  *   首次 limit=1000 一次就拿整季（S39 419 場約 3.7 秒），之後只抓最新 50 筆。
- *   瀏覽器 session 會重用（keep_alive 10 分鐘），避免 429 Rate limit。
+ *   瀏覽器 session 會重用（keep_alive 15 秒），避免 429 Rate limit。
  */
 import puppeteer, { type Browser } from "@cloudflare/puppeteer";
 
@@ -489,6 +491,8 @@ async function handlePlayer(request: Request, env: Env, url: URL): Promise<Respo
   const key = `m:${playerId}:${season}`;
   const refresh = url.searchParams.get("refresh") === "1";
   const full = url.searchParams.get("full") === "1";
+  /** cache=1：只讀 KV，絕對不開瀏覽器（本機預抓的資料用這個讀，不消耗額度） */
+  const cacheOnly = url.searchParams.get("cache") === "1" && !refresh;
 
   let cached: Payload | null = null;
   try {
@@ -498,12 +502,23 @@ async function handlePlayer(request: Request, env: Env, url: URL): Promise<Respo
     cached = null;
   }
 
-  if (cached && !full && seasonEnded(cached)) {
-    // 已結束的賽季資料不會再變：不管過多久、有沒有按更新，都直接回快取
+  if (cached && (seasonEnded(cached) || cacheOnly)) {
+    // 已結束的賽季資料不會再變；cacheOnly 則是完全照使用者要求只讀快取
+    const ended = seasonEnded(cached);
     const age = Math.round((Date.now() - Date.parse(cached.fetchedAt)) / 1000);
     return json(
-      { ...cached, cached: true, sealed: true, ageSeconds: Number.isFinite(age) ? age : null },
+      { ...cached, cached: true, sealed: ended, ageSeconds: Number.isFinite(age) ? age : null },
       200,
+      cors,
+    );
+  }
+
+  if (cacheOnly) {
+    return json(
+      {
+        error: `雲端沒有 #${playerId} S${season} 的資料；要現在用瀏覽器抓取，請按「線上抓取」`,
+      },
+      404,
       cors,
     );
   }

@@ -47,12 +47,13 @@ export async function saveCache(payload: MatchPayload): Promise<void> {
 export async function fetchPlayer(
   player: number,
   season: number,
-  opts: { refresh?: boolean } = {},
+  opts: { refresh?: boolean; cacheOnly?: boolean } = {},
 ): Promise<MatchPayload> {
   const url =
     `${API_BASE}/api/player?player=${encodeURIComponent(player)}` +
     `&season=${encodeURIComponent(season)}` +
-    (opts.refresh ? "&refresh=1" : "");
+    (opts.refresh ? "&refresh=1" : "") +
+    (opts.cacheOnly ? "&cache=1" : "");
 
   let res: Response;
   try {
